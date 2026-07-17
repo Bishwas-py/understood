@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "understood",
+  "description": "Low-cognitive-load rewrite patterns: caveman-english voice and forward-arrow flow chains",
+  "owner": {
+    "name": "Bishwas Bhandari"
+  },
+  "plugins": [
+    {
+      "name": "understood",
+      "description": "Rewrite dense text into faster-to-read shapes: caveman-english for blunt wording, forward-arrow for flow/process chains",
+      "author": {
+        "name": "Bishwas Bhandari"
+      },
+      "source": "./plugins/understood",
+      "category": "productivity"
+    }
+  ]
+}
