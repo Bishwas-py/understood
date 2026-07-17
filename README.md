@@ -29,12 +29,21 @@ understood/
 ## Install
 
 ```bash
-cd ~/Projects/understood
-claude plugin marketplace add "$(pwd)"
+claude plugin marketplace add Bishwas-py/understood
 claude plugin install understood@understood
 ```
 
 Restart Claude Code afterward — skills don't hot-reload mid-session.
+
+### Local development install
+
+If you're working on a local clone instead of the published repo:
+
+```bash
+cd /path/to/understood
+claude plugin marketplace add "$(pwd)"
+claude plugin install understood@understood
+```
 
 ## Uninstall
 
