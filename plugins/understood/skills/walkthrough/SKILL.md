@@ -17,9 +17,10 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 - numbered stops down the middle, each one a place to put the cursor
 - every path and every bare line number is a link that opens the editor at that exact line
 - two cue types per stop, `KEYWORD` and `KNOW MORE`, both bullet fragments
-- light and dark, prints, no network requests, no build step
+- light and dark, prints, no external requests, no build step
+- served on a memorable local hostname so the user gets a URL, not a file path
 
-Default output: `~/Downloads/<slug>-walkthrough.html`. Honour an explicit path if the user gives one.
+Default output: `~/Downloads/<slug>-walkthrough.html`, then served on a local port and handed back as `http://<slug>.lvh.me:<port>/`. Honour an explicit path if the user gives one.
 
 ## Before writing a single line
 
@@ -119,8 +120,9 @@ Built from the document, not hand-maintained.
 1. Copy `assets/template.html`, replace `{{TITLE}}`, `{{SUBTITLE}}`, `{{NAV}}`, `{{BODY}}`.
 2. Write the body: a summary table of what changed, then the acts, then any closing sections.
 3. Give every `<h2>` an `id`, every stop `<li>` an `id`, then build the nav from those.
-4. Link the paths, then link the bare line numbers.
+4. Link the paths, then link the bare line numbers, using the editor scheme detected for this machine.
 5. Verify.
+6. Serve it, and hand back the URL.
 
 Prefer direct edits over generating the file with a script. A scripted sweep is right for a mechanical pass over dozens of identical blocks; for anything else it is slower, riskier, and one bad substitution silently corrupts every anchor in the file.
 
@@ -134,6 +136,39 @@ Run all of these. Report the counts, do not claim it works.
 - no cue block without a list, a single-item block still gets a bullet, otherwise the question runs into the answer
 - no banned phrase survives
 - click two or three sidebar links yourself
+- fetch the served URL and confirm it returns 200 with the expected byte count
+
+## Serve it
+
+Hand back a URL, not a file path. A `file://` path cannot be pasted into a call, does not survive a screen share, and the editor links behave better from an http origin.
+
+```bash
+python3 assets/serve.py <output.html> --open
+```
+
+It prints one line, the URL, and holds the port until interrupted:
+
+```
+http://my-change-walkthrough.lvh.me:61967/
+```
+
+Any subdomain of `lvh.me` resolves to `127.0.0.1` through public DNS, so the page gets a hostname that says what it is, with no `/etc/hosts` edit and no privileged port. The slug comes from the filename.
+
+**Why the bundled server and not `python3 -m http.server`.** That serves the whole directory, and these files usually land in Downloads. `serve.py` binds loopback only and answers every path with the one file it was given, so a stray request cannot list or fetch anything else.
+
+Run it in the background, read the URL from its output, hand that to the user. Say the port dies when the process does.
+
+## Read the system before you write the file
+
+Three things depend on where this is running. Detect them, do not assume.
+
+**Editor scheme.** Look for what the user actually runs before choosing `cursor://file/...` or `vscode://file/...`. On macOS, `ls /Applications | grep -iE 'cursor|visual studio code'`; on Linux, `command -v cursor code`; on Windows, check the Programs folders. If both are present, ask, or pick the one whose process is running. Getting this wrong makes every link on the page inert.
+
+**Path shape.** Absolute paths, in the platform's own form. On Windows that means `vscode://file/C:/Users/...`, forward slashes, drive letter kept.
+
+**Opener.** `open` on macOS, `xdg-open` on Linux, `start` on Windows. `serve.py --open` already picks by platform, so prefer passing the flag over shelling out yourself.
+
+If `lvh.me` does not resolve, the machine is offline or behind a DNS filter. `serve.py` falls back to `localhost` on its own and says so on stderr. Pass that on rather than silently handing over a URL that will not load.
 
 ## Optional closing sections
 
