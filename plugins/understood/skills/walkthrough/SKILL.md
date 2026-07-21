@@ -20,7 +20,7 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 - light and dark, prints, no external requests, no build step
 - served on a memorable local hostname so the user gets a URL, not a file path
 
-Default output: `~/Downloads/<slug>-walkthrough.html`, then served on a local port and handed back as `http://<slug>.lvh.me:<port>/`. Honour an explicit path if the user gives one.
+Default output: `~/Downloads/<slug>-walkthrough.html`, then served on a stable local origin and handed back as `http://walkthrough.localhost:<port>/<slug>/`. Honour an explicit path if the user gives one.
 
 ## Before writing a single line
 
@@ -149,10 +149,10 @@ python3 assets/serve.py <output.html> --open
 It prints one line, the URL, and holds the port until interrupted:
 
 ```
-http://my-change-walkthrough.lvh.me:61967/
+http://walkthrough.localhost:8477/my-change-walkthrough/
 ```
 
-Any subdomain of `lvh.me` resolves to `127.0.0.1` through public DNS, so the page gets a hostname that says what it is, with no `/etc/hosts` edit and no privileged port. The slug comes from the filename.
+Browsers resolve `*.localhost` to loopback on their own, no DNS and no `/etc/hosts` edit, and treat it as a secure context. That last part is the point: editor links (`cursor://`, `vscode://`) trigger the browser's "open this application?" dialog, and only a secure context gets the **Always allow** checkbox. The origin (host and port together) is what the browser remembers the approval for, which is why the host and default port never change and the slug lives in the path. Approve once, never prompted again.
 
 **Why the bundled server and not `python3 -m http.server`.** That serves the whole directory, and these files usually land in Downloads. `serve.py` binds loopback only and answers every path with the one file it was given, so a stray request cannot list or fetch anything else.
 
@@ -178,7 +178,7 @@ Getting this wrong is the worst failure this document has, because it only surfa
 
 **Opener.** `open` on macOS, `xdg-open` on Linux, `start` on Windows. `serve.py --open` already picks by platform, so prefer passing the flag over shelling out yourself.
 
-If `lvh.me` does not resolve, the machine is offline or behind a DNS filter. `serve.py` falls back to `localhost` on its own and says so on stderr. Pass that on rather than silently handing over a URL that will not load.
+If port `8477` is busy, `serve.py` walks up to the next free port and says so on stderr; a different port is a different origin, so the browser will ask to allow the editor link once more on that origin. Pass that warning on rather than letting it surprise the presenter mid-call. If the browser cannot resolve `walkthrough.localhost` (rare, some non-mainstream browsers), `http://localhost:<port>/<slug>/` reaches the same server.
 
 ## Optional closing sections
 

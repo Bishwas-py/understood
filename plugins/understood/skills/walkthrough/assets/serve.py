@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve ONE walkthrough file on a local host, reachable as <slug>.lvh.me:<port>.
+"""Serve ONE walkthrough file on a stable local origin: walkthrough.localhost.
 
 Deliberately not `python3 -m http.server`: that serves the whole directory, and
 these files usually live in Downloads. This binds loopback only and answers
@@ -7,13 +7,18 @@ every path with the single file it was given, so nothing else is exposed.
 
     ./serve.py ~/Downloads/my-change-walkthrough.html
     ./serve.py path/to/file.html --port 8412 --open
+
+Why walkthrough.localhost and a fixed port: browsers treat *.localhost as a
+secure context, so the "Open Cursor?" external-protocol dialog offers an
+"Always allow" checkbox, and that decision is remembered per origin (host AND
+port). A stable host:port means the presenter approves the editor link once,
+ever. The walkthrough's slug goes in the URL path, not the hostname.
 """
 
 from __future__ import annotations
 
 import argparse
 import http.server
-import os
 import re
 import socket
 import socketserver
@@ -23,10 +28,8 @@ import threading
 import webbrowser
 from pathlib import Path
 
-# Any subdomain of lvh.me resolves to 127.0.0.1 via public DNS, which gives the
-# page a memorable hostname without touching /etc/hosts. It needs DNS to
-# resolve, so an offline machine falls back to localhost.
-LVH = "lvh.me"
+HOST = "walkthrough.localhost"
+BASE_PORT = 8477
 
 
 def slugify(name: str) -> str:
@@ -35,19 +38,19 @@ def slugify(name: str) -> str:
 
 
 def free_port(preferred: int | None) -> int:
+    """Prefer a stable port so the browser's per-origin approval survives restarts."""
     if preferred:
         return preferred
+    for port in range(BASE_PORT, BASE_PORT + 20):
+        with socket.socket() as s:
+            try:
+                s.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            return port
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
-
-
-def lvh_resolves() -> bool:
-    try:
-        socket.getaddrinfo(LVH, None)
-        return True
-    except OSError:
-        return False
 
 
 def open_in_browser(url: str) -> None:
@@ -107,15 +110,18 @@ def main() -> int:
 
     port = free_port(args.port)
     slug = slugify(path.stem)
-    host = f"{slug}.{LVH}" if lvh_resolves() else "localhost"
-    url = f"http://{host}:{port}/"
+    url = f"http://{HOST}:{port}/{slug}/"
 
     threading.Thread(target=serve, args=(path, port), daemon=True).start()
 
     # flush: the caller usually backgrounds this and reads the URL from a log
     print(url, flush=True)
-    if host == "localhost":
-        print(f"({LVH} did not resolve, serving on localhost instead)", file=sys.stderr, flush=True)
+    if port != BASE_PORT and not args.port:
+        print(
+            f"(port {BASE_PORT} was busy; on {port} the browser may ask to allow the editor link once more)",
+            file=sys.stderr,
+            flush=True,
+        )
     if args.open:
         open_in_browser(url)
 
