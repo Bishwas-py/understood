@@ -101,7 +101,7 @@ Every path and every bare line reference becomes an anchor:
 ```
 
 - Absolute paths only. Percent-encode, keeping `/:.[]()+_-` safe, so route files with brackets and plus signs survive.
-- `cursor://file/...` for Cursor, `vscode://file/...` for VS Code. Pick from what the user runs, and mention the one-replace switch.
+- Scheme comes from `assets/editor.py`, Cursor preferred, VS Code fallback. Mention the one-replace switch between them.
 - Shorthand in the text resolves to the full path of the file **the surrounding stop is in**. The same line number means different files in different acts.
 - **Verify every target exists on disk before writing it.** A dead link during a live call is worse than no link.
 - The first click prompts the browser to allow the scheme. Tell the user, so they allow it before the call, not during.
@@ -162,7 +162,17 @@ Run it in the background, read the URL from its output, hand that to the user. S
 
 Three things depend on where this is running. Detect them, do not assume.
 
-**Editor scheme.** Look for what the user actually runs before choosing `cursor://file/...` or `vscode://file/...`. On macOS, `ls /Applications | grep -iE 'cursor|visual studio code'`; on Linux, `command -v cursor code`; on Windows, check the Programs folders. If both are present, ask, or pick the one whose process is running. Getting this wrong makes every link on the page inert.
+**Editor scheme.** Do not assume, and do not ask. Run the bundled probe:
+
+```bash
+python3 assets/editor.py     # prints "cursor://file" or "vscode://file"
+```
+
+**Cursor wins when both are installed.** A machine with both is almost always someone who moved to Cursor and never uninstalled VS Code, so Cursor is the live editor and VS Code is residue. VS Code is the fallback, not a tie-break.
+
+The probe checks the CLI on `PATH` first, then the platform's install locations: app bundles on macOS (`/Applications` and `~/Applications`), Programs directories on Windows, desktop entries on Linux. If neither is found it exits non-zero and prints nothing on stdout, which is a real answer: write the `file:line` text without anchors rather than emitting links that silently do nothing when clicked.
+
+Getting this wrong is the worst failure this document has, because it only surfaces mid-call, on the first click, in front of the reviewer.
 
 **Path shape.** Absolute paths, in the platform's own form. On Windows that means `vscode://file/C:/Users/...`, forward slashes, drive letter kept.
 
