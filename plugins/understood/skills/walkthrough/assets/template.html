@@ -322,33 +322,65 @@
 	.qa-flow .arw { color: var(--accent); font-weight: 600; }
 	.qa-svg { margin: .35rem 0 0; }
 	.qa-svg svg { max-width: 100%; height: auto; display: block; }
+	.qa-a pre { margin: .35rem 0 .15rem; padding: .5rem .65rem; }
+	.qa-a pre code { font-size: .76rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+	.qa-a .jk { color: var(--accent); }
 	.hl.asked { transition: background .15s; }
 	.hl.asked.lit { background: rgba(255, 200, 40, .55); }
 	@media (prefers-color-scheme: dark) { .hl.asked.lit { background: rgba(255, 213, 79, .4); } }
-	#chatbox {
+	#spot {
 		position: fixed;
-		right: 1.25rem;
+		left: 50%;
+		transform: translateX(-50%);
 		bottom: 1.25rem;
-		width: min(340px, calc(100vw - 2.5rem));
-		background: var(--panel);
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		box-shadow: var(--shadow);
-		padding: .5rem .6rem;
+		width: min(640px, calc(100vw - 2rem));
 		z-index: 55;
 	}
-	#chatbox > input {
+	#spot-pill {
+		display: flex;
+		align-items: center;
+		gap: .55rem;
+		margin: 0 auto;
+		width: fit-content;
+		border: 1px solid var(--line);
+		background: var(--panel);
+		color: var(--muted);
+		border-radius: 999px;
+		padding: .45rem 1rem;
+		font-size: .85rem;
+		font-family: inherit;
+		cursor: pointer;
+		box-shadow: var(--shadow);
+	}
+	#spot-pill kbd {
+		font-family: inherit;
+		font-size: .7rem;
+		border: 1px solid var(--line);
+		border-radius: 5px;
+		padding: .05rem .35rem;
+	}
+	#spot-panel {
+		display: none;
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		box-shadow: var(--shadow);
+		padding: .6rem;
+	}
+	#spot.open #spot-panel { display: block; }
+	#spot.open #spot-pill { display: none; }
+	#spot-panel input {
 		width: 100%;
 		border: 0;
 		outline: none;
 		background: transparent;
 		color: var(--fg);
 		font: inherit;
-		font-size: .88rem;
-		padding: .1rem .1rem;
+		font-size: 1rem;
+		padding: .35rem .4rem;
 	}
-	#chatbox > input::placeholder { color: var(--muted); }
-	#chatlog { display: flex; flex-direction: column; gap: .5rem; max-height: 45vh; overflow-y: auto; margin-bottom: .45rem; }
+	#spot-panel input::placeholder { color: var(--muted); }
+	#chatlog { display: flex; flex-direction: column; gap: .5rem; max-height: 50vh; overflow-y: auto; margin-bottom: .4rem; }
 	#chatlog:empty { display: none; margin: 0; }
 	#chatlog .qa { margin: 0; font-size: .84rem; }
 	/* Corner hook pointing at the corner that faces the asked text. */
@@ -382,7 +414,8 @@
 	.qa-a p { margin: .15rem 0 0; }
 	.qa-a ul { margin: .1rem 0 0; padding-left: 1.05rem; }
 	.qa-a li { margin: .12rem 0; }
-	.qa-status { color: var(--muted); font-size: .78rem; margin: .3rem 0 0; }
+	.qa-status, .qa-note { color: var(--muted); font-size: .78rem; margin: .3rem 0 0; }
+	.qa-note::before { content: "✦ "; color: var(--accent); }
 	#qa-rail .qa { margin: 0; font-size: .84rem; box-shadow: var(--shadow); border-radius: 8px; }
 	.qa.reply, #qa-rail .qa.reply {
 		position: static;
@@ -496,15 +529,40 @@
 	hlLayer.id = 'hl-layer';
 	const rail = document.createElement('div');
 	rail.id = 'qa-rail';
-	const chatbox = document.createElement('div');
-	chatbox.id = 'chatbox';
+	const spot = document.createElement('div');
+	spot.id = 'spot';
+	const spotPill = document.createElement('button');
+	spotPill.id = 'spot-pill';
+	spotPill.type = 'button';
+	spotPill.innerHTML = 'ask anything about this page <kbd>⌘K</kbd>';
+	const spotPanel = document.createElement('div');
+	spotPanel.id = 'spot-panel';
 	const chatlog = document.createElement('div');
 	chatlog.id = 'chatlog';
 	const chatInput = document.createElement('input');
-	chatInput.placeholder = 'ask anything about this page…';
-	chatbox.append(chatlog, chatInput);
-	document.body.append(hlLayer, rail, chatbox);
+	chatInput.placeholder = 'ask, or tell me to change the page…';
+	spotPanel.append(chatlog, chatInput);
+	spot.append(spotPill, spotPanel);
+	document.body.append(hlLayer, rail, spot);
+
+	function openSpot() {
+		spot.classList.add('open');
+		chatInput.focus();
+		chatlog.scrollTop = chatlog.scrollHeight;
+	}
+	function closeSpot() { spot.classList.remove('open'); }
+	spotPill.addEventListener('click', openSpot);
+	document.addEventListener('keydown', e => {
+		if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+			e.preventDefault();
+			spot.classList.contains('open') ? closeSpot() : openSpot();
+		}
+	});
+	document.addEventListener('pointerdown', e => {
+		if (spot.classList.contains('open') && !spot.contains(e.target)) closeSpot();
+	});
 	chatInput.addEventListener('keydown', e => {
+		if (e.key === 'Escape') { e.stopPropagation(); closeSpot(); return; }
 		if (e.key !== 'Enter') return;
 		const question = chatInput.value.trim();
 		if (!question) return;
@@ -766,10 +824,25 @@
 	});
 
 	function esc(t) { return t.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+	function unesc(t) { return t.replace(/&(amp|lt|gt|quot|#39);/g, m => ({ '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" }[m])); }
+	function prettyJson(src) {
+		const t = src.trim();
+		if (!/^[\[{]/.test(t)) return null;
+		try { return JSON.stringify(JSON.parse(t), null, 2); } catch (e) { return null; }
+	}
+	function tintJson(escaped) {
+		return escaped.replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)(\s*:)/g, '<span class="jk">$1</span>$2');
+	}
+	function jsonBlock(raw) {
+		return '<pre class="qa-code"><code>' + tintJson(esc(raw)) + '</code></pre>';
+	}
 	function inline(t) {
 		return t
 			.replace(/\[([^\]]+)\]\(((?:cursor|vscode|https?):[^)\s]+)\)/g, '<a href="$2">$1</a>')
-			.replace(/`([^`]+)`/g, '<code>$1</code>');
+			.replace(/`([^`]+)`/g, (m, code) => {
+				const pretty = code.length > 40 ? prettyJson(unesc(code)) : null;
+				return pretty ? jsonBlock(pretty) : '<code>' + code + '</code>';
+			});
 	}
 	function renderFlow(text) {
 		const steps = text.split('->').map(s => s.trim()).filter(Boolean);
@@ -796,8 +869,23 @@
 		}
 		return out.map(x => Array.isArray(x) ? '<ul>' + x.join('') + '</ul>' : x).join('');
 	}
-	function renderAnswer(text) {
-		const parts = text.split(/```(\w*)\n?([\s\S]*?)```/);
+	// morph fences: the trusted session restyles or reshapes the page on request.
+	// Applied once per fence, re-applied on reload because they live in answers.jsonl.
+	const appliedMorphs = new Set();
+	function applyMorph(kind, code, key) {
+		if (appliedMorphs.has(key)) return;
+		appliedMorphs.add(key);
+		if (kind === 'morph-css') {
+			const st = document.createElement('style');
+			st.dataset.morph = key;
+			st.textContent = code;
+			document.head.append(st);
+		} else {
+			try { new Function(code)(); } catch (e) {}
+		}
+	}
+	function renderAnswer(text, qid) {
+		const parts = text.split(/```([\w-]*)\n?([\s\S]*?)```/);
 		let html = '';
 		for (let i = 0; i < parts.length; i += 3) {
 			html += renderPlain(parts[i]);
@@ -806,7 +894,14 @@
 			if (code === undefined) break;
 			if (lang === 'flow') html += renderFlow(code);
 			else if (lang === 'svg' && safeSvg(code)) html += '<div class="qa-svg">' + code + '</div>';
-			else html += '<pre><code>' + esc(code) + '</code></pre>';
+			else if (lang === 'morph-css' || lang === 'morph-js') {
+				applyMorph(lang, code, (qid || '') + ':' + i);
+				html += '<p class="qa-note">page ' + (lang === 'morph-css' ? 'restyled' : 'modified') + '</p>';
+			}
+			else {
+				const pretty = lang === 'json' ? prettyJson(code) : null;
+				html += pretty ? jsonBlock(pretty) : '<pre><code>' + esc(code) + '</code></pre>';
+			}
 		}
 		return html;
 	}
@@ -867,7 +962,7 @@
 			delete pendingSince[q.id];
 			if (card.dataset.answered !== '1') {
 				card.dataset.answered = '1';
-				card.querySelector('.qa-a').innerHTML = renderAnswer(answer);
+				card.querySelector('.qa-a').innerHTML = renderAnswer(answer, q.id);
 				card.querySelector('.qa-status').textContent = '';
 			}
 		} else {

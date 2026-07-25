@@ -92,9 +92,19 @@ def read_jsonl(path: Path) -> list[dict]:
 
 
 def serve(path: Path, port: int) -> None:
-    body = path.read_bytes()
+    state = {"body": path.read_bytes(), "mtime": path.stat().st_mtime}
     questions_path, answers_path = qa_paths(path)
     append_lock = threading.Lock()
+
+    def body() -> bytes:
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            return state["body"]
+        if mtime != state["mtime"]:
+            state["mtime"] = mtime
+            state["body"] = path.read_bytes()
+        return state["body"]
 
     class Handler(http.server.BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -119,12 +129,13 @@ def serve(path: Path, port: int) -> None:
                 self.end_headers()
                 self.wfile.write(payload)
                 return
+            page = body()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Length", str(len(page)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(body)
+            self.wfile.write(page)
 
         def do_POST(self):  # noqa: N802
             if self.path != "/ask":

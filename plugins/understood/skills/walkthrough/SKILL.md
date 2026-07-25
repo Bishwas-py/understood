@@ -19,7 +19,7 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
 - every path and every bare line number is a link that opens the editor at that exact line
 - two cue types per stop, `KEYWORD` and `KNOW MORE`, both bullet fragments
-- ask-from-selection: the reader's questions land as cards floating beside the highlighted text, answered live by the session that built the page; a chat box on the page takes questions not tied to any selection
+- ask-from-selection: the reader's questions land as cards floating beside the highlighted text, answered live by the session that built the page; a spotlight bar at the bottom (Cmd+K) takes questions not tied to any selection and can ask the session to reshape the page itself
 - light and dark, prints, no external requests, no build step
 - served on a memorable local hostname so the user gets a URL, not a file path
 
@@ -243,14 +243,21 @@ The page polls and pins the answer beside the text it came from. Answer to produ
 5. **Hard terms are fine, prose is not.** Keep the term, drop the sentence around it. `file:line` in backticks; an editor link `[repo.go:427](cursor://file/...)` whenever pointing beats describing.
 6. **Changed things come as a pair.** before: x. after: y.
 
-A selection inside an existing card threads: the follow-up arrives with a `parent` id and nests below the card it questions, showing the quoted fragment it carries in `selection`. Answer it the same way, by id; context is the parent card's answer. A question with no selection, no stop, and no parent comes from the page's chat box; treat it as a question about the whole change.
+A selection inside an existing card threads: the follow-up arrives with a `parent` id and nests below the card it questions, showing the quoted fragment it carries in `selection`. Answer it the same way, by id; context is the parent card's answer. A question with no selection, no stop, and no parent comes from the page's spotlight bar; treat it as a question about the whole change.
+
+**Morphing the page.** The spotlight can also command the page, and only when the reader explicitly asks for a change (hide a stage, enlarge text, dim what is done, annotate): answer with one plain line saying what changed, plus a fence the page applies:
+
+- a ```morph-css fence is injected as a stylesheet
+- a ```morph-js fence runs once
+
+Morphs persist across reloads because they live in the answers file; to undo one, say so and answer with a fence that reverses it. Never morph on an ordinary question. For structural rewrites regenerate the HTML file itself; serve.py notices the file change and the next reload serves it.
 
 Answers are mini-markdown: `- ` bullets, backtick code, `[label](cursor://...)` links. Two richer forms, used only when the shape earns them:
 
 - a line starting `flow:` (or a ```flow fence) renders as an arrow chain of pills: `flow: form JSON -> settle -> leftover list`. Use it whenever the answer is a process.
 - an ```svg fence renders inline as a diagram. Hand-write it small (a few boxes and arrows, viewBox, currentColor strokes), no scripts, no event handlers, no external references; it is sanitized and falls back to plain code if it fails the check. A diagram is for structure that words genuinely cannot carry, one per answer at most.
 
-Any other fence renders as a code block.
+Any other fence renders as a code block. Records and payloads go in plain backticks or a ```json fence; the page pretty-prints any JSON into an indented, wrapped block with tinted keys on its own, so paste them raw, never hand-wrap them.
 
 A question starting with `/skill-name` is a skill invocation: invoke that skill and apply it to the selection (or to composing the answer), same as if the user typed it in the terminal. The page's `/` dropdown offers the skills you embedded via `{{SKILLS}}`. If someone hand-types a skill you excluded (code-editing, review, anything that cannot finish as a card), do not run it; say on the card what it does and why it needs the terminal instead.
 
