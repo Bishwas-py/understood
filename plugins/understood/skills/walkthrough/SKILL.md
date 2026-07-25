@@ -117,7 +117,8 @@ Built from the document, not hand-maintained.
 
 ## Build order
 
-1. Copy `assets/template.html`, replace `{{TITLE}}`, `{{SUBTITLE}}`, `{{NAV}}`, `{{BODY}}`.
+1. Copy `assets/template.html`, replace `{{TITLE}}`, `{{SUBTITLE}}`, `{{NAV}}`, `{{BODY}}`, `{{SKILLS}}`.
+   `{{SKILLS}}` is a JSON array powering the `/` dropdown in the page's ask box: every user-invocable skill in your session, `[{"name": "caveman-english", "hint": "blunt clipped rewording"}, ...]`, hint being the first clause of the skill's description, under 60 chars. Left unreplaced it degrades to no dropdown, nothing breaks.
 2. Write the body: a summary table of what changed, then the acts, then any closing sections.
 3. Give every `<h2>` an `id`, every stop `<li>` an `id`, then build the nav from those.
 4. Link the paths, then link the bare line numbers, using the editor scheme detected for this machine.
@@ -176,6 +177,8 @@ EOF
 ```
 
 The page polls and pins the answer under the stop the selection came from, so answer in the page's own voice: 2 to 4 bullets starting `- `, glanceable, `file:line` in backticks, an editor link as `[formmap.go:50](cursor://file/...)` when pointing somewhere is faster than describing it. No paragraphs; the presenter reads this mid-call. The card renders only that mini-markdown (bullets, backtick code, `cursor://`/`vscode://`/http links), nothing else.
+
+A question starting with `/skill-name` is a skill invocation: invoke that skill and apply it to the selection (or to composing the answer), same as if the user typed it in the terminal. The page's `/` dropdown offers the skills you embedded via `{{SKILLS}}`.
 
 Keep the watch loop running until the user says stop. Questions asked while nobody is listening queue in the file and the card says so; answer them whenever the user brings the walkthrough back up.
 
