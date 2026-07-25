@@ -274,6 +274,11 @@
 	.qa-a ul { margin: .1rem 0 0; padding-left: 1.05rem; }
 	.qa-a li { margin: .12rem 0; }
 	.qa-status { color: var(--muted); font-size: .78rem; margin: .3rem 0 0; }
+	::highlight(asking) { background-color: highlight; }
+	::highlight(asked) { background-color: rgba(255, 213, 79, .45); }
+	@media (prefers-color-scheme: dark) {
+		::highlight(asked) { background-color: rgba(255, 213, 79, .28); }
+	}
 </style>
 </head>
 <body>
@@ -358,7 +363,18 @@
 	const pendingSince = {};
 	let pollTimer = null;
 
-	function hideAsk() { chip.style.display = 'none'; pop.style.display = 'none'; }
+	// Keep the selection painted while the input has focus, flip it yellow once sent.
+	const canHl = 'highlights' in CSS && typeof Highlight === 'function';
+	const askingHl = canHl ? new Highlight() : null;
+	const askedHl = canHl ? new Highlight() : null;
+	if (canHl) { CSS.highlights.set('asking', askingHl); CSS.highlights.set('asked', askedHl); }
+	let savedRange = null;
+
+	function hideAsk() {
+		chip.style.display = 'none';
+		pop.style.display = 'none';
+		if (canHl) askingHl.clear();
+	}
 
 	document.addEventListener('pointerup', e => {
 		if (chip.contains(e.target) || pop.contains(e.target)) return;
@@ -383,6 +399,9 @@
 	}
 
 	chip.addEventListener('click', () => {
+		const s = getSelection();
+		savedRange = s && s.rangeCount ? s.getRangeAt(0).cloneRange() : null;
+		if (canHl && savedRange) { askingHl.clear(); askingHl.add(savedRange); }
 		pop.style.top = chip.style.top;
 		pop.style.left = chip.style.left;
 		chip.style.display = 'none';
@@ -401,6 +420,8 @@
 		if (e.key !== 'Enter') return;
 		const question = askInput.value.trim();
 		if (!question || !sel) return;
+		if (canHl && savedRange) askedHl.add(savedRange);
+		savedRange = null;
 		hideAsk();
 		getSelection().removeAllRanges();
 		const id = crypto.randomUUID ? crypto.randomUUID()
