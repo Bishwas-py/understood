@@ -274,10 +274,13 @@
 	.qa-a ul { margin: .1rem 0 0; padding-left: 1.05rem; }
 	.qa-a li { margin: .12rem 0; }
 	.qa-status { color: var(--muted); font-size: .78rem; margin: .3rem 0 0; }
-	::highlight(asking) { background-color: highlight; }
-	::highlight(asked) { background-color: rgba(255, 213, 79, .45); }
+	#hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
+	#hl-layer .hl { position: absolute; border-radius: 2px; }
+	#hl-layer .hl.asking { background: rgba(84, 143, 255, .30); }
+	#hl-layer .hl.asked { background: rgba(255, 200, 40, .35); }
 	@media (prefers-color-scheme: dark) {
-		::highlight(asked) { background-color: rgba(255, 213, 79, .28); }
+		#hl-layer .hl.asking { background: rgba(122, 162, 255, .32); }
+		#hl-layer .hl.asked { background: rgba(255, 213, 79, .22); }
 	}
 </style>
 </head>
@@ -364,16 +367,52 @@
 	let pollTimer = null;
 
 	// Keep the selection painted while the input has focus, flip it yellow once sent.
-	const canHl = 'highlights' in CSS && typeof Highlight === 'function';
-	const askingHl = canHl ? new Highlight() : null;
-	const askedHl = canHl ? new Highlight() : null;
-	if (canHl) { CSS.highlights.set('asking', askingHl); CSS.highlights.set('asked', askedHl); }
+	// Overlay rectangles merged per line, so the band is continuous like a native
+	// selection even across code spans with different font metrics.
+	const hlLayer = document.createElement('div');
+	hlLayer.id = 'hl-layer';
+	document.body.append(hlLayer);
 	let savedRange = null;
+	let askingRange = null;
+	const askedRanges = [];
+
+	function lineBands(range) {
+		const lines = [];
+		for (const r of range.getClientRects()) {
+			if (r.width <= 0 || r.height <= 0) continue;
+			const line = lines.find(l =>
+				Math.min(l.bottom, r.bottom) - Math.max(l.top, r.top) > Math.min(l.bottom - l.top, r.height) * .5);
+			if (!line) { lines.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right }); continue; }
+			line.top = Math.min(line.top, r.top);
+			line.bottom = Math.max(line.bottom, r.bottom);
+			line.left = Math.min(line.left, r.left);
+			line.right = Math.max(line.right, r.right);
+		}
+		return lines;
+	}
+	function paintHl() {
+		hlLayer.replaceChildren();
+		const draw = (range, cls) => {
+			for (const line of lineBands(range)) {
+				const d = document.createElement('div');
+				d.className = 'hl ' + cls;
+				d.style.left = line.left + scrollX + 'px';
+				d.style.top = line.top + scrollY + 'px';
+				d.style.width = (line.right - line.left) + 'px';
+				d.style.height = (line.bottom - line.top) + 'px';
+				hlLayer.append(d);
+			}
+		};
+		askedRanges.forEach(r => draw(r, 'asked'));
+		if (askingRange) draw(askingRange, 'asking');
+	}
+	window.addEventListener('resize', paintHl);
 
 	function hideAsk() {
 		chip.style.display = 'none';
 		pop.style.display = 'none';
-		if (canHl) askingHl.clear();
+		askingRange = null;
+		paintHl();
 	}
 
 	document.addEventListener('pointerup', e => {
@@ -401,7 +440,8 @@
 	chip.addEventListener('click', () => {
 		const s = getSelection();
 		savedRange = s && s.rangeCount ? s.getRangeAt(0).cloneRange() : null;
-		if (canHl && savedRange) { askingHl.clear(); askingHl.add(savedRange); }
+		askingRange = savedRange;
+		paintHl();
 		pop.style.top = chip.style.top;
 		pop.style.left = chip.style.left;
 		chip.style.display = 'none';
@@ -420,15 +460,15 @@
 		if (e.key !== 'Enter') return;
 		const question = askInput.value.trim();
 		if (!question || !sel) return;
-		if (canHl && savedRange) askedHl.add(savedRange);
-		savedRange = null;
-		hideAsk();
-		getSelection().removeAllRanges();
 		const id = crypto.randomUUID ? crypto.randomUUID()
 			: 'q' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 		const rec = { id, stop: sel.stop, selection: sel.text, question };
 		pendingSince[id] = Date.now();
 		upsertCard(rec, undefined);
+		if (savedRange) askedRanges.push(savedRange);
+		savedRange = null;
+		hideAsk();
+		getSelection().removeAllRanges();
 		fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
 			.then(r => { if (!r.ok) throw 0; startPolling(); })
 			.catch(() => setStatus(id, 'failed to send, is serve.py still running?'));
@@ -478,8 +518,11 @@
 		}
 		if (answer !== undefined) {
 			delete pendingSince[q.id];
-			card.querySelector('.qa-a').innerHTML = renderAnswer(answer);
-			card.querySelector('.qa-status').textContent = '';
+			if (card.dataset.answered !== '1') {
+				card.dataset.answered = '1';
+				card.querySelector('.qa-a').innerHTML = renderAnswer(answer);
+				card.querySelector('.qa-status').textContent = '';
+			}
 		} else {
 			if (!(q.id in pendingSince)) pendingSince[q.id] = Date.now();
 			const waited = Date.now() - pendingSince[q.id];
@@ -503,6 +546,7 @@
 				if (answers[q.id] === undefined) pending = true;
 			}
 			if (pending) startPolling(); else stopPolling();
+			paintHl();
 		} catch (e) { /* server gone; leave the cards as they are */ }
 	}
 	function startPolling() { if (!pollTimer) pollTimer = setInterval(syncQA, 2000); }
