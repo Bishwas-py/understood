@@ -273,14 +273,20 @@
 	}
 	#askmenu .mi.on, #askmenu .mi:hover { background: var(--say-bg); }
 	.qa {
+		position: relative;
 		border: 1px solid var(--line);
-		border-left: 3px solid var(--accent);
-		border-radius: 0 6px 6px 0;
+		border-radius: 8px;
 		background: var(--panel);
 		padding: .55rem .85rem .6rem;
 		margin: .6rem 0 0;
 		font-size: .9rem;
 	}
+	/* Corner hook pointing at the corner that faces the asked text. */
+	.qa::after { content: ""; position: absolute; width: 16px; height: 16px; display: none; pointer-events: none; }
+	.qa.dir-tr::after { display: block; top: -5px; right: -5px; border-top: 3.5px solid var(--accent); border-right: 3.5px solid var(--accent); border-top-right-radius: 14px; }
+	.qa.dir-tl::after { display: block; top: -5px; left: -5px; border-top: 3.5px solid var(--accent); border-left: 3.5px solid var(--accent); border-top-left-radius: 14px; }
+	.qa.dir-br::after { display: block; bottom: -5px; right: -5px; border-bottom: 3.5px solid var(--accent); border-right: 3.5px solid var(--accent); border-bottom-right-radius: 14px; }
+	.qa.dir-bl::after { display: block; bottom: -5px; left: -5px; border-bottom: 3.5px solid var(--accent); border-left: 3.5px solid var(--accent); border-bottom-left-radius: 14px; }
 	.qa::before {
 		content: "ASKED";
 		display: block;
@@ -456,11 +462,16 @@
 				? { x: m.right + 24, width: Math.min(320, rightRoom) } : null,
 		};
 	}
+	function setDir(card, dir) {
+		card.classList.remove('dir-tl', 'dir-tr', 'dir-bl', 'dir-br');
+		if (dir) card.classList.add('dir-' + dir);
+	}
 	function placeCard(card) {
 		const parent = card.dataset.parent && document.getElementById('qa-' + card.dataset.parent);
 		if (parent) {
 			if (card.parentElement !== parent) parent.append(card);
 			card.style.position = card.style.top = card.style.left = card.style.width = '';
+			setDir(card, 'tl');
 			return;
 		}
 		const rooms = sideRooms();
@@ -472,6 +483,7 @@
 		const target = host || mainEl;
 		if (card.parentElement !== target) target.append(card);
 		card.style.position = card.style.top = card.style.left = card.style.width = '';
+		setDir(card, 'tl');
 	}
 	function layoutRail() {
 		const all = [...document.querySelectorAll('.qa')];
@@ -502,6 +514,8 @@
 			card.style.left = room.x + scrollX + 'px';
 			card.style.width = room.width + 'px';
 			bottoms[side] = top + card.offsetHeight;
+			const vert = y > top + card.offsetHeight / 2 ? 'b' : 't';
+			setDir(card, vert + (side === 'left' ? 'r' : 'l'));
 		}
 	}
 	window.addEventListener('resize', () => { paintHl(); layoutRail(); });
