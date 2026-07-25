@@ -1,7 +1,7 @@
 {
   "name": "understood",
   "description": "Low-cognitive-load patterns: caveman-english voice, forward-arrow flow chains, and walkthrough review pages",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "author": {
     "name": "Bishwas Bhandari"
   }

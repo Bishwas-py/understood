@@ -118,7 +118,8 @@ Built from the document, not hand-maintained.
 ## Build order
 
 1. Copy `assets/template.html`, replace `{{TITLE}}`, `{{SUBTITLE}}`, `{{NAV}}`, `{{BODY}}`, `{{SKILLS}}`.
-   `{{SKILLS}}` is a JSON array powering the `/` dropdown in the page's ask box: every user-invocable skill in your session, `[{"name": "caveman-english", "hint": "blunt clipped rewording"}, ...]`, hint being the first clause of the skill's description, under 60 chars. Left unreplaced it degrades to no dropdown, nothing breaks.
+   `{{SKILLS}}` is a JSON array powering the `/` dropdown in the page's ask box: `[{"name": "caveman-english", "hint": "blunt clipped rewording"}, ...]`, hint being the first clause of the skill's description, under 60 chars.
+   Curate it from the session's live skill list, never a hardcoded set. Include a skill only if it acts on words: takes the selection (or the question) as text and produces a card answer, rewording, condensing, explaining, translating. Everything code-shaped stays out: skills that generate or edit code, review diffs, run tests or the app, build pages, or touch infrastructure, including `walkthrough` itself. The test is the presenter mid-call: if the skill could not finish as 2 to 4 bullets on the card while they keep talking, it does not belong in the menu. Left unreplaced it degrades to no dropdown, nothing breaks.
 2. Write the body: a summary table of what changed, then the acts, then any closing sections.
 3. Give every `<h2>` an `id`, every stop `<li>` an `id`, then build the nav from those.
 4. Link the paths, then link the bare line numbers, using the editor scheme detected for this machine.
@@ -178,7 +179,7 @@ EOF
 
 The page polls and pins the answer under the stop the selection came from, so answer in the page's own voice: 2 to 4 bullets starting `- `, glanceable, `file:line` in backticks, an editor link as `[formmap.go:50](cursor://file/...)` when pointing somewhere is faster than describing it. No paragraphs; the presenter reads this mid-call. The card renders only that mini-markdown (bullets, backtick code, `cursor://`/`vscode://`/http links), nothing else.
 
-A question starting with `/skill-name` is a skill invocation: invoke that skill and apply it to the selection (or to composing the answer), same as if the user typed it in the terminal. The page's `/` dropdown offers the skills you embedded via `{{SKILLS}}`.
+A question starting with `/skill-name` is a skill invocation: invoke that skill and apply it to the selection (or to composing the answer), same as if the user typed it in the terminal. The page's `/` dropdown offers the skills you embedded via `{{SKILLS}}`. If someone hand-types a skill you excluded (code-editing, review, anything that cannot finish as a card), do not run it; say on the card what it does and why it needs the terminal instead.
 
 Keep the watch loop running until the user says stop. Questions asked while nobody is listening queue in the file and the card says so; answer them whenever the user brings the walkthrough back up.
 
