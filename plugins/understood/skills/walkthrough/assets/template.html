@@ -119,7 +119,7 @@
 		overflow-x: auto;
 		margin: .6rem 0;
 	}
-	pre code { font-size: .82rem; line-height: 1.5; }
+	pre code { font-size: .82rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 	ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; }
 	ol.steps > li {
 		counter-increment: s;
@@ -197,7 +197,7 @@
 	.pipe li:first-child::before { content: "\25CF"; font-size: .7rem; top: .48rem; }
 	.pipe li .where { float: right; color: var(--muted); font-size: .72rem; font-family: ui-monospace, Menlo, monospace; padding-top: .15rem; }
 	.pipe .foot { margin: .7rem 0 0; color: var(--muted); font-size: .8rem; }
-	.rec { display: block; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: .45rem .6rem; margin: .4rem 0 0; font-size: .78rem; overflow-x: auto; white-space: nowrap; }
+	.rec { display: block; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: .45rem .6rem; margin: .4rem 0 0; font-size: .78rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 	.tag { float: right; font-family: ui-monospace, Menlo, monospace; font-size: .72rem; color: var(--accent); background: var(--say-bg); border-radius: 999px; padding: .1rem .55rem; margin-left: .5rem; }
 	h2 .tag { float: none; vertical-align: .15rem; }
 	/* .io and .ba share the boxed-rows skeleton; only widths and colors differ. */

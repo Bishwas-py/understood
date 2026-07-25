@@ -145,6 +145,8 @@ Each of them hides the fact. Replace with the fact.
 
 **No em-dashes, anywhere on the page.** Commas, periods, parentheses instead. This is absolute; sweep the generated HTML for the character before serving.
 
+**Every record, payload, and code sample is well formatted at birth.** Pretty-printed, indented, one field or statement per line, written that way in the HTML you generate. Never a crammed one-liner in a `.rec` chip or a `<pre>`; the reader should never have to ask for formatting. The template wraps code to the available width (`pre-wrap`), so pretty-printed content stays readable at any screen size; a one-liner stays a one-liner and helps nobody.
+
 **Concrete nouns only.** "One item per file" is two vague words. "One queue row per uploaded document, a salary certificate, a bank statement" is checkable. If a word means two different things in the same document (a queue row and a database row), disambiguate every occurrence.
 
 **Numbers earn their place or leave.** A measured latency figure is worth saying. A pile of threshold values the presenter would have to recite is noise. Point at the comment in the code that holds them instead.
