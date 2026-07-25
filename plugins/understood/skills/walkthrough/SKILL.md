@@ -243,7 +243,9 @@ The page polls and pins the answer beside the text it came from. Answer to produ
 5. **Hard terms are fine, prose is not.** Keep the term, drop the sentence around it. `file:line` in backticks; an editor link `[repo.go:427](cursor://file/...)` whenever pointing beats describing.
 6. **Changed things come as a pair.** before: x. after: y.
 
-A selection inside an existing card threads: the follow-up arrives with a `parent` id and nests below the card it questions, showing the quoted fragment it carries in `selection`. Answer it the same way, by id; context is the parent card's answer. A question with no selection, no stop, and no parent comes from the page's spotlight bar; treat it as a question about the whole change.
+A selection inside an existing card threads: the follow-up arrives with a `parent` id and nests below the card it questions, showing the quoted fragment it carries in `selection`. Answer it the same way, by id; context is the parent card's answer.
+
+The selection chip offers two intents. **Ask** stays inline: the answer pins beside the text. **Quote** carries the selection into the spotlight as an attached reference, and the record arrives with `"via": "spot"` plus the quoted `selection`; the conversation lives in the spotlight's own thread. A quote is how the reader hands you a precise anchor, for a question or for an edit: "make this section shorter" with a quote means that section, and a morph or file rewrite scoped to it. A spotlight record with no selection is a question about the whole change.
 
 **Morphing the page.** The spotlight can also command the page, and only when the reader explicitly asks for a change (hide a stage, enlarge text, dim what is done, annotate): answer with one plain line saying what changed, plus a fence the page applies:
 

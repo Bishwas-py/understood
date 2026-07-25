@@ -218,16 +218,22 @@
 	#askchip, #askpop { position: absolute; z-index: 60; }
 	#askchip {
 		display: none;
-		padding: .3rem .75rem;
-		border: 0;
 		border-radius: 999px;
+		overflow: hidden;
+		box-shadow: var(--shadow);
+	}
+	#askchip button {
+		border: 0;
 		background: var(--accent);
 		color: #fff;
 		font-size: .78rem;
 		font-weight: 600;
+		font-family: inherit;
+		padding: .3rem .7rem;
 		cursor: pointer;
-		box-shadow: var(--shadow);
 	}
+	#askchip button + button { border-left: 1px solid rgba(255, 255, 255, .3); }
+	#spot-quote { margin-bottom: .4rem; }
 	#askpop {
 		display: none;
 		width: min(420px, 90vw);
@@ -464,10 +470,15 @@
 
 	// Ask-from-selection: POST to serve.py, poll /qa.json, pin cards under stops.
 	const mainEl = document.querySelector('main');
-	const chip = document.createElement('button');
+	const chip = document.createElement('div');
 	chip.id = 'askchip';
-	chip.type = 'button';
-	chip.textContent = 'Ask';
+	const askBtn = document.createElement('button');
+	askBtn.type = 'button';
+	askBtn.textContent = 'Ask';
+	const quoteBtn = document.createElement('button');
+	quoteBtn.type = 'button';
+	quoteBtn.textContent = 'Quote';
+	chip.append(askBtn, quoteBtn);
 	const pop = document.createElement('div');
 	pop.id = 'askpop';
 	const askInput = document.createElement('input');
@@ -562,12 +573,33 @@
 		if (spot.classList.contains('open') && !spot.contains(e.target)) closeSpot();
 	});
 	chatInput.addEventListener('keydown', e => {
-		if (e.key === 'Escape') { e.stopPropagation(); closeSpot(); return; }
+		if (e.key === 'Escape') {
+			e.stopPropagation();
+			const q = document.getElementById('spot-quote');
+			if (q) { spotQuote = null; q.remove(); askingRange = null; paintHl(); return; }
+			closeSpot();
+			return;
+		}
 		if (e.key !== 'Enter') return;
 		const question = chatInput.value.trim();
 		if (!question) return;
 		chatInput.value = '';
-		submitQuestion({ id: newId(), stop: '', selection: '', question, parent: '' });
+		const quote = spotQuote;
+		spotQuote = null;
+		const q = document.getElementById('spot-quote');
+		if (q) q.remove();
+		const id = newId();
+		if (quote && quote.range) askedRanges.set(id, quote.range);
+		askingRange = null;
+		submitQuestion({
+			id,
+			stop: quote ? (quote.stop || '') : '',
+			selection: quote ? quote.text : '',
+			question,
+			parent: '',
+			via: 'spot',
+		});
+		paintHl();
 	});
 	let savedRange = null;
 	let askingRange = null;
@@ -609,6 +641,7 @@
 	function focusCard(id) {
 		const card = document.getElementById('qa-' + id);
 		if (!card) return;
+		if (chatlog.contains(card)) { openSpot(); card.scrollIntoView({ block: 'nearest' }); }
 		const r = card.getBoundingClientRect();
 		if (r.top < 0 || r.bottom > innerHeight) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
 		card.classList.add('focus');
@@ -646,7 +679,7 @@
 		if (dir) card.classList.add('dir-' + dir);
 	}
 	function placeCard(card) {
-		if (!card.dataset.parent && !card.dataset.stop && card.dataset.sel !== '1') {
+		if (card.dataset.via === 'spot' || (!card.dataset.parent && !card.dataset.stop && card.dataset.sel !== '1')) {
 			if (card.parentElement !== chatlog) chatlog.append(card);
 			card.style.position = card.style.top = card.style.left = card.style.width = '';
 			setDir(card, null);
@@ -746,8 +779,8 @@
 			parent: card ? card.id.slice(3) : '',
 		};
 		chip.style.top = scrollY + r.bottom + 8 + 'px';
-		chip.style.left = scrollX + Math.max(8, Math.min(r.left + r.width / 2 - 24, innerWidth - 90)) + 'px';
-		chip.style.display = 'block';
+		chip.style.left = scrollX + Math.max(8, Math.min(r.left + r.width / 2 - 50, innerWidth - 140)) + 'px';
+		chip.style.display = 'flex';
 	}
 
 	function startQuoteReply(card, text, range) {
@@ -772,7 +805,35 @@
 		box.querySelector('input').focus();
 	}
 
-	chip.addEventListener('click', () => {
+	let spotQuote = null;
+	function startSpotQuote(text, range, stop) {
+		spotQuote = { text, range, stop };
+		let q = document.getElementById('spot-quote');
+		if (!q) {
+			q = document.createElement('div');
+			q.id = 'spot-quote';
+			q.className = 'qa-quote';
+			const label = document.createElement('span');
+			const x = document.createElement('button');
+			x.type = 'button';
+			x.textContent = '×';
+			x.addEventListener('click', () => { spotQuote = null; q.remove(); askingRange = null; paintHl(); });
+			q.append(label, x);
+			spotPanel.insertBefore(q, chatInput);
+		}
+		q.querySelector('span').textContent = text.length > 90 ? text.slice(0, 90) + '…' : text;
+		if (range) { askingRange = range; paintHl(); }
+		getSelection().removeAllRanges();
+		openSpot();
+	}
+	quoteBtn.addEventListener('click', () => {
+		const s = getSelection();
+		const range = s && s.rangeCount ? s.getRangeAt(0).cloneRange() : null;
+		chip.style.display = 'none';
+		if (sel) startSpotQuote(sel.text, range, sel.stop);
+	});
+
+	askBtn.addEventListener('click', () => {
 		const s = getSelection();
 		savedRange = s && s.rangeCount ? s.getRangeAt(0).cloneRange() : null;
 		if (sel && sel.parent) {
@@ -913,6 +974,7 @@
 			card.className = q.parent ? 'qa reply' : 'qa';
 			card.id = 'qa-' + q.id;
 			card.dataset.sel = q.selection ? '1' : '';
+			card.dataset.via = q.via || '';
 			card.addEventListener('mouseenter', () =>
 				hlLayer.querySelectorAll('.hl[data-qid="' + q.id + '"]').forEach(d => d.classList.add('lit')));
 			card.addEventListener('mouseleave', () =>
