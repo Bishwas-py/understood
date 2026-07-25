@@ -409,14 +409,24 @@
 		askedRanges.forEach(r => draw(r, 'asked'));
 		if (askingRange) draw(askingRange, 'asking');
 	}
-	// Cards float beside their highlight in a right rail, Docs-comment style,
-	// stacking down on collision; in-flow under the stop when the window is narrow.
-	function railRoom() {
-		const r = mainEl.getBoundingClientRect();
-		return innerWidth - r.right >= 280 ? r : null;
+	// Cards float beside their highlight, Docs-comment style, on whichever
+	// margin has room, left, right, or both; in-flow when neither does.
+	function sideRooms() {
+		const m = mainEl.getBoundingClientRect();
+		const toc = document.getElementById('toc');
+		const tocEdge = toc && getComputedStyle(toc).display !== 'none' ? toc.getBoundingClientRect().right : 0;
+		const leftRoom = m.left - tocEdge - 44;
+		const rightRoom = innerWidth - m.right - 40;
+		return {
+			left: leftRoom >= 240
+				? { x: m.left - 24 - Math.min(320, leftRoom), width: Math.min(320, leftRoom) } : null,
+			right: rightRoom >= 240
+				? { x: m.right + 24, width: Math.min(320, rightRoom) } : null,
+		};
 	}
 	function placeCard(card) {
-		if (railRoom()) {
+		const rooms = sideRooms();
+		if (rooms.left || rooms.right) {
 			if (card.parentElement !== rail) rail.append(card);
 			return;
 		}
@@ -428,10 +438,8 @@
 	function layoutRail() {
 		const cards = [...document.querySelectorAll('.qa')];
 		cards.forEach(placeCard);
-		const room = railRoom();
-		if (!room) return;
-		const left = room.right + scrollX + 24;
-		const width = Math.min(320, innerWidth - room.right - 40);
+		const rooms = sideRooms();
+		if (!rooms.left && !rooms.right) return;
 		const anchored = cards.map(card => {
 			const range = askedRanges.get(card.id.slice(3));
 			let y = null;
@@ -442,14 +450,19 @@
 			}
 			return { card, y };
 		}).sort((a, b) => a.y - b.y);
-		let prev = -1e9;
+		const bottoms = { left: -1e9, right: -1e9 };
 		for (const { card, y } of anchored) {
-			const top = Math.max(y, prev + 12);
+			let side = 'right';
+			if (rooms.left && rooms.right) {
+				side = Math.max(y, bottoms.left + 12) <= Math.max(y, bottoms.right + 12) ? 'left' : 'right';
+			} else if (rooms.left) side = 'left';
+			const room = rooms[side];
+			const top = Math.max(y, bottoms[side] + 12);
 			card.style.position = 'absolute';
 			card.style.top = top + 'px';
-			card.style.left = left + 'px';
-			card.style.width = width + 'px';
-			prev = top + card.offsetHeight;
+			card.style.left = room.x + scrollX + 'px';
+			card.style.width = room.width + 'px';
+			bottoms[side] = top + card.offsetHeight;
 		}
 	}
 	window.addEventListener('resize', () => { paintHl(); layoutRail(); });
@@ -581,10 +594,52 @@
 		if (card) card.querySelector('.qa-status').textContent = text;
 	}
 
+	// Rebuild a Range from the stored selection text, so yellow survives reload.
+	const rangeTried = new Set();
+	function findRange(root, needle) {
+		const norm = needle.replace(/\s+/g, ' ').trim();
+		if (!norm) return null;
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+			acceptNode(n) {
+				return n.parentElement.closest('.qa, #askpop, #toc, #hl-layer')
+					? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+			},
+		});
+		let hay = '';
+		const map = [];
+		for (let n; (n = walker.nextNode());) {
+			const t = n.nodeValue;
+			for (let i = 0; i < t.length; i++) {
+				const ws = /\s/.test(t[i]);
+				if (ws && (hay === '' || hay.endsWith(' '))) continue;
+				hay += ws ? ' ' : t[i];
+				map.push({ n, i });
+			}
+		}
+		const at = hay.indexOf(norm);
+		if (at < 0) return null;
+		const s = map[at];
+		const e = map[at + norm.length - 1];
+		const range = document.createRange();
+		range.setStart(s.n, s.i);
+		range.setEnd(e.n, e.i + 1);
+		return range;
+	}
+	function restoreRanges(questions) {
+		for (const q of questions) {
+			if (askedRanges.has(q.id) || rangeTried.has(q.id) || !q.selection) continue;
+			rangeTried.add(q.id);
+			const root = (q.stop && document.getElementById(q.stop)) || mainEl;
+			const range = findRange(root, q.selection) || (root !== mainEl && findRange(mainEl, q.selection));
+			if (range) askedRanges.set(q.id, range);
+		}
+	}
+
 	async function syncQA() {
 		try {
 			const r = await fetch('/qa.json', { cache: 'no-store' });
 			const d = await r.json();
+			restoreRanges(d.questions);
 			const answers = {};
 			for (const a of d.answers) answers[a.id] = a.answer;
 			let pending = false;
