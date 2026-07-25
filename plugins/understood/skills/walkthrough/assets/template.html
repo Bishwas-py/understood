@@ -312,7 +312,19 @@
 	.qa-a li { margin: .12rem 0; }
 	.qa-status { color: var(--muted); font-size: .78rem; margin: .3rem 0 0; }
 	#qa-rail .qa { margin: 0; font-size: .84rem; box-shadow: var(--shadow); border-radius: 8px; }
-	.qa .qa, #qa-rail .qa .qa { position: static; margin: .55rem 0 0; box-shadow: none; font-size: 1em; }
+	.qa.reply, #qa-rail .qa.reply {
+		position: static;
+		margin: .6rem 0 0;
+		padding: .55rem 0 0;
+		border: 0;
+		border-top: 1px solid var(--line);
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+		font-size: 1em;
+	}
+	.qa.reply::before, .qa.reply::after { content: none; }
+	.qa.reply .qa-q::before { content: "\21B3\00a0"; color: var(--accent); font-weight: 700; }
 	#hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 	#hl-layer .hl { position: absolute; border-radius: 2px; }
 	#hl-layer .hl.asking { background: rgba(84, 143, 255, .30); }
@@ -471,7 +483,7 @@
 		if (parent) {
 			if (card.parentElement !== parent) parent.append(card);
 			card.style.position = card.style.top = card.style.left = card.style.width = '';
-			setDir(card, 'tl');
+			setDir(card, null);
 			return;
 		}
 		const rooms = sideRooms();
@@ -619,11 +631,14 @@
 		let card = document.getElementById('qa-' + q.id);
 		if (!card) {
 			card = document.createElement('div');
-			card.className = 'qa';
+			card.className = q.parent ? 'qa reply' : 'qa';
 			card.id = 'qa-' + q.id;
-			const selP = document.createElement('p');
-			selP.className = 'qa-sel';
-			selP.textContent = q.selection.length > 220 ? q.selection.slice(0, 220) + '…' : q.selection;
+			if (!q.parent) {
+				const selP = document.createElement('p');
+				selP.className = 'qa-sel';
+				selP.textContent = q.selection.length > 220 ? q.selection.slice(0, 220) + '…' : q.selection;
+				card.append(selP);
+			}
 			const qP = document.createElement('p');
 			qP.className = 'qa-q';
 			qP.textContent = q.question;
@@ -631,7 +646,7 @@
 			aDiv.className = 'qa-a';
 			const status = document.createElement('p');
 			status.className = 'qa-status';
-			card.append(selP, qP, aDiv, status);
+			card.append(qP, aDiv, status);
 			card.dataset.stop = q.stop || '';
 			card.dataset.parent = q.parent || '';
 			placeCard(card);
