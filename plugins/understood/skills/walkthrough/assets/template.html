@@ -274,6 +274,7 @@
 	.qa-a ul { margin: .1rem 0 0; padding-left: 1.05rem; }
 	.qa-a li { margin: .12rem 0; }
 	.qa-status { color: var(--muted); font-size: .78rem; margin: .3rem 0 0; }
+	#qa-rail .qa { margin: 0; font-size: .84rem; box-shadow: var(--shadow); border-radius: 8px; }
 	#hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 	#hl-layer .hl { position: absolute; border-radius: 2px; }
 	#hl-layer .hl.asking { background: rgba(84, 143, 255, .30); }
@@ -371,10 +372,12 @@
 	// selection even across code spans with different font metrics.
 	const hlLayer = document.createElement('div');
 	hlLayer.id = 'hl-layer';
-	document.body.append(hlLayer);
+	const rail = document.createElement('div');
+	rail.id = 'qa-rail';
+	document.body.append(hlLayer, rail);
 	let savedRange = null;
 	let askingRange = null;
-	const askedRanges = [];
+	const askedRanges = new Map();
 
 	function lineBands(range) {
 		const lines = [];
@@ -406,7 +409,50 @@
 		askedRanges.forEach(r => draw(r, 'asked'));
 		if (askingRange) draw(askingRange, 'asking');
 	}
-	window.addEventListener('resize', paintHl);
+	// Cards float beside their highlight in a right rail, Docs-comment style,
+	// stacking down on collision; in-flow under the stop when the window is narrow.
+	function railRoom() {
+		const r = mainEl.getBoundingClientRect();
+		return innerWidth - r.right >= 280 ? r : null;
+	}
+	function placeCard(card) {
+		if (railRoom()) {
+			if (card.parentElement !== rail) rail.append(card);
+			return;
+		}
+		const host = card.dataset.stop && document.getElementById(card.dataset.stop);
+		const target = host || mainEl;
+		if (card.parentElement !== target) target.append(card);
+		card.style.position = card.style.top = card.style.left = card.style.width = '';
+	}
+	function layoutRail() {
+		const cards = [...document.querySelectorAll('.qa')];
+		cards.forEach(placeCard);
+		const room = railRoom();
+		if (!room) return;
+		const left = room.right + scrollX + 24;
+		const width = Math.min(320, innerWidth - room.right - 40);
+		const anchored = cards.map(card => {
+			const range = askedRanges.get(card.id.slice(3));
+			let y = null;
+			if (range) { const b = lineBands(range)[0]; if (b) y = b.top + scrollY; }
+			if (y == null) {
+				const host = card.dataset.stop && document.getElementById(card.dataset.stop);
+				y = (host || mainEl).getBoundingClientRect().top + scrollY;
+			}
+			return { card, y };
+		}).sort((a, b) => a.y - b.y);
+		let prev = -1e9;
+		for (const { card, y } of anchored) {
+			const top = Math.max(y, prev + 12);
+			card.style.position = 'absolute';
+			card.style.top = top + 'px';
+			card.style.left = left + 'px';
+			card.style.width = width + 'px';
+			prev = top + card.offsetHeight;
+		}
+	}
+	window.addEventListener('resize', () => { paintHl(); layoutRail(); });
 
 	function hideAsk() {
 		chip.style.display = 'none';
@@ -465,8 +511,9 @@
 		const rec = { id, stop: sel.stop, selection: sel.text, question };
 		pendingSince[id] = Date.now();
 		upsertCard(rec, undefined);
-		if (savedRange) askedRanges.push(savedRange);
+		if (savedRange) askedRanges.set(id, savedRange);
 		savedRange = null;
+		layoutRail();
 		hideAsk();
 		getSelection().removeAllRanges();
 		fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
@@ -513,8 +560,8 @@
 			const status = document.createElement('p');
 			status.className = 'qa-status';
 			card.append(selP, qP, aDiv, status);
-			const host = q.stop && document.getElementById(q.stop);
-			(host || mainEl).append(card);
+			card.dataset.stop = q.stop || '';
+			placeCard(card);
 		}
 		if (answer !== undefined) {
 			delete pendingSince[q.id];
@@ -547,6 +594,7 @@
 			}
 			if (pending) startPolling(); else stopPolling();
 			paintHl();
+			layoutRail();
 		} catch (e) { /* server gone; leave the cards as they are */ }
 	}
 	function startPolling() { if (!pollTimer) pollTimer = setInterval(syncQA, 2000); }
