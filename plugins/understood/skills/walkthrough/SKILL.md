@@ -19,7 +19,7 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
 - every path and every bare line number is a link that opens the editor at that exact line
 - two cue types per stop, `KEYWORD` and `KNOW MORE`, both bullet fragments
-- ask-from-selection: the reader's questions land as cards floating beside the highlighted text, answered live by the session that built the page; a spotlight bar at the bottom (Cmd+K) takes questions not tied to any selection and can ask the session to reshape the page itself
+- ask-from-selection: the reader's questions land as cards floating beside the highlighted text, answered live by the session that built the page; a discussion section at the end of the page takes questions not tied to any selection and can ask the session to reshape the page itself (Cmd+K jumps to it, and with a selection active Cmd+K quotes it there)
 - light and dark, prints, no external requests, no build step
 - served on a memorable local hostname so the user gets a URL, not a file path
 
@@ -245,9 +245,9 @@ The page polls and pins the answer beside the text it came from. Answer to produ
 
 A selection inside an existing card threads: the follow-up arrives with a `parent` id and nests below the card it questions, showing the quoted fragment it carries in `selection`. Answer it the same way, by id; context is the parent card's answer.
 
-The selection chip offers two intents. **Ask** stays inline: the answer pins beside the text. **Quote** carries the selection into the spotlight as an attached reference, and the record arrives with `"via": "spot"` plus the quoted `selection`; the conversation lives in the spotlight's own thread. A quote is how the reader hands you a precise anchor, for a question or for an edit: "make this section shorter" with a quote means that section, and a morph or file rewrite scoped to it. A spotlight record with no selection is a question about the whole change.
+The selection chip offers two intents. **Ask** stays inline: the answer pins beside the text. **Quote** carries the selection into the discussion section as an attached reference, and the record arrives with `"via": "spot"` plus the quoted `selection`; the conversation lives in the discussion thread. A quote is how the reader hands you a precise anchor, for a question or for an edit: "make this section shorter" with a quote means that section, and a morph or file rewrite scoped to it. A discussion record with no selection is a question about the whole change.
 
-**Morphing the page.** The spotlight can also command the page, and only when the reader explicitly asks for a change (hide a stage, enlarge text, dim what is done, annotate): answer with one plain line saying what changed, plus a fence the page applies:
+**Morphing the page.** The discussion box can also command the page, and only when the reader explicitly asks for a change (hide a stage, enlarge text, dim what is done, annotate): answer with one plain line saying what changed, plus a fence the page applies:
 
 - a ```morph-css fence is injected as a stylesheet
 - a ```morph-js fence runs once

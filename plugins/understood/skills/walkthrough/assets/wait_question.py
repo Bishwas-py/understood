@@ -23,21 +23,18 @@ import sys
 import time
 from pathlib import Path
 
+from serve import read_jsonl
 
-def read_jsonl(path: Path) -> list[dict]:
-    records = []
-    if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(record, dict):
-                records.append(record)
-    return records
+
+def files_signature(*paths: Path) -> tuple:
+    sig = []
+    for p in paths:
+        try:
+            st = p.stat()
+            sig.append((st.st_mtime_ns, st.st_size))
+        except OSError:
+            sig.append(None)
+    return tuple(sig)
 
 
 def main() -> int:
@@ -57,13 +54,17 @@ def main() -> int:
             f.write(json.dumps({"id": args.answer, "answer": text}, ensure_ascii=False) + "\n")
         return 0
 
+    last_sig = None
     while True:
-        answered = {r.get("id") for r in read_jsonl(args.answers)}
-        pending = [q for q in read_jsonl(args.questions) if q.get("id") not in answered]
-        if pending:
-            for question in pending:
-                print(json.dumps(question, ensure_ascii=False), flush=True)
-            return 0
+        sig = files_signature(args.questions, args.answers)
+        if sig != last_sig:
+            last_sig = sig
+            answered = {r.get("id") for r in read_jsonl(args.answers)}
+            pending = [q for q in read_jsonl(args.questions) if q.get("id") not in answered]
+            if pending:
+                for question in pending:
+                    print(json.dumps(question, ensure_ascii=False), flush=True)
+                return 0
         time.sleep(args.poll)
 
 

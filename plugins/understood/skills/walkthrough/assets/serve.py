@@ -109,10 +109,20 @@ def serve(path: Path, port: int) -> None:
     class Handler(http.server.BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
+        def reply(self, status, payload=b"", ctype=None):
+            self.send_response(status)
+            if ctype:
+                self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(payload)))
+            if status == 200:
+                self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            if payload:
+                self.wfile.write(payload)
+
         def do_GET(self):  # noqa: N802
             if self.path in ("/favicon.ico",):
-                self.send_response(204)
-                self.end_headers()
+                self.reply(204)
                 return
             if self.path.split("?", 1)[0] == "/qa.json":
                 payload = json.dumps(
@@ -122,35 +132,20 @@ def serve(path: Path, port: int) -> None:
                     },
                     ensure_ascii=False,
                 ).encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_header("Content-Length", str(len(payload)))
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
-                self.wfile.write(payload)
+                self.reply(200, payload, "application/json; charset=utf-8")
                 return
-            page = body()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(page)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(page)
+            self.reply(200, body(), "text/html; charset=utf-8")
 
         def do_POST(self):  # noqa: N802
             if self.path != "/ask":
-                self.send_response(404)
-                self.send_header("Content-Length", "0")
-                self.end_headers()
+                self.reply(404)
                 return
             try:
                 length = int(self.headers.get("Content-Length", "0"))
             except ValueError:
                 length = 0
             if not 0 < length <= 65536:
-                self.send_response(413)
-                self.send_header("Content-Length", "0")
-                self.end_headers()
+                self.reply(413)
                 return
             try:
                 raw = json.loads(self.rfile.read(length))
@@ -163,14 +158,11 @@ def serve(path: Path, port: int) -> None:
                     "question": str(raw["question"])[:2000],
                 }
             except (KeyError, TypeError, ValueError):
-                self.send_response(400)
-                self.send_header("Content-Length", "0")
-                self.end_headers()
+                self.reply(400)
                 return
             with append_lock, questions_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
-            self.send_response(204)
-            self.end_headers()
+            self.reply(204)
 
         def log_message(self, *args):  # quiet
             pass
