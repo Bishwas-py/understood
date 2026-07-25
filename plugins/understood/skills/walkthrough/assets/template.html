@@ -280,7 +280,21 @@
 		padding: .55rem .85rem .6rem;
 		margin: .6rem 0 0;
 		font-size: .9rem;
+		transition: border-color .25s, box-shadow .25s;
 	}
+	.qa.focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--say-bg); }
+	.qa-replybox { margin: .55rem 0 0; padding-top: .5rem; border-top: 1px solid var(--line); }
+	.qa-replybox input {
+		width: 100%;
+		border: 0;
+		outline: none;
+		background: transparent;
+		color: var(--fg);
+		font: inherit;
+		font-size: .85em;
+		padding: .1rem 0;
+	}
+	.qa-replybox input::placeholder { color: var(--muted); }
 	/* Corner hook pointing at the corner that faces the asked text. */
 	.qa::after { content: ""; position: absolute; width: 18px; height: 18px; display: none; pointer-events: none; }
 	.qa.dir-tr::after { display: block; top: -2px; right: -2px; border-top: 3px solid var(--accent); border-right: 3px solid var(--accent); border-top-right-radius: 10px; }
@@ -445,10 +459,11 @@
 	}
 	function paintHl() {
 		hlLayer.replaceChildren();
-		const draw = (range, cls) => {
+		const draw = (range, cls, qid) => {
 			for (const line of lineBands(range)) {
 				const d = document.createElement('div');
 				d.className = 'hl ' + cls;
+				if (qid) d.dataset.qid = qid;
 				d.style.left = line.left + scrollX + 'px';
 				d.style.top = line.top + scrollY + 'px';
 				d.style.width = (line.right - line.left) + 'px';
@@ -456,9 +471,31 @@
 				hlLayer.append(d);
 			}
 		};
-		askedRanges.forEach(r => draw(r, 'asked'));
+		askedRanges.forEach((r, id) => draw(r, 'asked', id));
 		if (askingRange) draw(askingRange, 'asking');
 	}
+	// Click a yellow mark, its card scrolls in and flashes. Hit-tested from the
+	// document so the overlay never steals text selection.
+	function focusCard(id) {
+		const card = document.getElementById('qa-' + id);
+		if (!card) return;
+		const r = card.getBoundingClientRect();
+		if (r.top < 0 || r.bottom > innerHeight) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		card.classList.add('focus');
+		setTimeout(() => card.classList.remove('focus'), 1600);
+	}
+	document.addEventListener('click', e => {
+		const s = getSelection();
+		if (s && !s.isCollapsed) return;
+		if (e.target.closest('.qa, #askchip, #askpop, a')) return;
+		for (const d of hlLayer.querySelectorAll('.hl.asked')) {
+			const r = d.getBoundingClientRect();
+			if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+				focusCard(d.dataset.qid);
+				return;
+			}
+		}
+	});
 	// Cards float beside their highlight, Docs-comment style, on whichever
 	// margin has room, left, right, or both; in-flow when neither does.
 	function sideRooms() {
@@ -481,7 +518,10 @@
 	function placeCard(card) {
 		const parent = card.dataset.parent && document.getElementById('qa-' + card.dataset.parent);
 		if (parent) {
-			if (card.parentElement !== parent) parent.append(card);
+			const box = parent.querySelector(':scope > .qa-replybox');
+			if (card.parentElement !== parent || (box && card.nextElementSibling !== box)) {
+				parent.insertBefore(card, box || null);
+			}
 			card.style.position = card.style.top = card.style.left = card.style.width = '';
 			setDir(card, null);
 			return;
@@ -580,6 +620,19 @@
 		askInput.focus();
 	});
 
+	function newId() {
+		return crypto.randomUUID ? crypto.randomUUID()
+			: 'q' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+	}
+	function submitQuestion(rec) {
+		pendingSince[rec.id] = Date.now();
+		upsertCard(rec, undefined);
+		layoutRail();
+		fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
+			.then(r => { if (!r.ok) throw 0; startPolling(); })
+			.catch(() => setStatus(rec.id, 'failed to send, is serve.py still running?'));
+	}
+
 	askInput.addEventListener('keydown', e => {
 		if (menu.style.display === 'block') {
 			if (e.key === 'ArrowDown') { e.preventDefault(); menuIdx = (menuIdx + 1) % menuHits.length; updateMenu(); return; }
@@ -590,19 +643,12 @@
 		if (e.key !== 'Enter') return;
 		const question = askInput.value.trim();
 		if (!question || !sel) return;
-		const id = crypto.randomUUID ? crypto.randomUUID()
-			: 'q' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-		const rec = { id, stop: sel.stop, selection: sel.text, question, parent: sel.parent || '' };
-		pendingSince[id] = Date.now();
-		upsertCard(rec, undefined);
+		const id = newId();
 		if (savedRange) askedRanges.set(id, savedRange);
 		savedRange = null;
-		layoutRail();
 		hideAsk();
 		getSelection().removeAllRanges();
-		fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
-			.then(r => { if (!r.ok) throw 0; startPolling(); })
-			.catch(() => setStatus(id, 'failed to send, is serve.py still running?'));
+		submitQuestion({ id, stop: sel.stop, selection: sel.text, question, parent: sel.parent || '' });
 	});
 
 	function esc(t) { return t.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -649,6 +695,21 @@
 			card.append(qP, aDiv, status);
 			card.dataset.stop = q.stop || '';
 			card.dataset.parent = q.parent || '';
+			if (!q.parent) {
+				const box = document.createElement('div');
+				box.className = 'qa-replybox';
+				const inp = document.createElement('input');
+				inp.placeholder = 'reply…';
+				box.append(inp);
+				card.append(box);
+				inp.addEventListener('keydown', e => {
+					if (e.key !== 'Enter') return;
+					const question = inp.value.trim();
+					if (!question) return;
+					inp.value = '';
+					submitQuestion({ id: newId(), stop: card.dataset.stop || '', selection: '', question, parent: q.id });
+				});
+			}
 			placeCard(card);
 		}
 		if (answer !== undefined) {
