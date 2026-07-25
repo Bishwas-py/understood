@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>{{TITLE}}</title>
+<title>live blocks, reference implementations</title>
 <style>
 	:root {
 		--bg: #ffffff;
@@ -214,26 +214,6 @@
 	.ba .b b { color: var(--ba-bad-fg); }
 	.ba .a { background: var(--ba-good); }
 	.ba .a b { color: var(--ba-good-fg); }
-	/* Live-block chrome: card, header, button system, think-lines.
-	   Block-specific css/js travels with the block markup (see assets/blocks.html). */
-	.blk { margin-top: 1rem; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); box-shadow: var(--shadow); }
-	.blk-head { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-bottom: 1px solid var(--line); background: var(--code-bg); flex-wrap: wrap; }
-	.btn {
-		border: 1px solid var(--line); background: var(--panel); color: var(--fg);
-		border-radius: 8px; padding: .2rem .7rem; cursor: pointer;
-		font-family: inherit; font-size: .82rem;
-		transition: border-color .15s, color .15s, background .15s, transform .06s, opacity .15s;
-	}
-	.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-	.btn:active:not(:disabled) { transform: translateY(1px) scale(.98); }
-	.btn:disabled { opacity: .45; cursor: default; }
-	.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-	.btn.primary:hover:not(:disabled) { color: #fff; filter: brightness(1.12); }
-	.btn.on { background: var(--say-bg); border-color: var(--accent); color: var(--accent); }
-	.btn.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .76rem; }
-	ul.think { list-style: none; padding: 0; margin: .5rem 0 0; border-left: 2px solid var(--line); }
-	ul.think li { padding: .28rem 0 .28rem .8rem; }
-	ul.think .arw, .arw { color: var(--accent); font-weight: 600; }
 	/* Ask-from-selection: floating chip, question input, pinned Q&A card. */
 	#askchip, #askpop { position: absolute; z-index: 60; }
 	#askchip {
@@ -363,8 +343,6 @@
 	#chatlog { display: flex; flex-direction: column; gap: .6rem; margin-top: .9rem; }
 	#chatlog:empty { display: none; margin: 0; }
 	#chatlog .qa { margin: 0; }
-	/* One input for the discussion: card reply boxes hide here, the main box below serves all. */
-	#chatlog .qa-replybox { display: none; }
 	/* Corner hook pointing at the corner that faces the asked text. */
 	.qa::after { content: ""; position: absolute; width: 18px; height: 18px; display: none; pointer-events: none; }
 	.qa.dir-tr::after { display: block; top: -2px; right: -2px; border-top: 3px solid var(--accent); border-right: 3px solid var(--accent); border-top-right-radius: 10px; }
@@ -410,16 +388,515 @@
 </style>
 </head>
 <body>
-{{NAV}}
+<nav id="toc"><p class="toc-title">live blocks</p><ol>
+<li><a class="sec" href="#c1">switch</a></li>
+<li><a class="sec" href="#c2">stepper</a></li>
+<li><a class="sec" href="#c3">dial</a></li>
+<li><a class="sec" href="#c4">bind</a></li>
+<li><a class="sec" href="#c5">race</a></li>
+<li><a class="sec" href="#c6">ledger</a></li>
+<li><a class="sec" href="#c7">probe</a></li>
+<li><a class="sec" href="#c8">map</a></li>
+<li><a class="sec" href="#c9">space</a></li>
+<li><a class="sec" href="#c10">angle</a></li>
+<li><a class="sec" href="#c12">stack</a></li>
+<li><a class="sec" href="#c13">chain</a></li>
+<li><a class="sec" href="#cmp">when each fires</a></li>
+</ol></nav>
 <main>
 
-<h1>{{TITLE}}</h1>
-<p class="sub">{{SUBTITLE}}</p>
+<h1>live blocks</h1>
+<p class="sub">the dynamic component family: switch, stepper, dial, bind. every control surface is a code reference</p>
 
-{{BODY}}
+
+<style>
+.blk { margin-top: 1rem; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); box-shadow: var(--shadow); }
+.blk-head { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-bottom: 1px solid var(--line); background: var(--code-bg); flex-wrap: wrap; }
+.btn {
+  border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+  border-radius: 8px; padding: .2rem .7rem; cursor: pointer;
+  font-family: inherit; font-size: .82rem;
+  transition: border-color .15s, color .15s, background .15s, transform .06s, opacity .15s;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:active:not(:disabled) { transform: translateY(1px) scale(.98); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.primary:hover:not(:disabled) { color: #fff; filter: brightness(1.12); }
+.btn.on { background: var(--say-bg); border-color: var(--accent); color: var(--accent); }
+.btn.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .76rem; }
+</style>
+<p class="sub" style="margin:0 0 1.2rem">live blocks: components whose control surface is a code reference. four members, all operable, same PR-120 facts. names in bold are how we talk about them.</p>
+
+<h2 id="c1">switch <span class="hint">a line toggled in and out of existence; for fixes and decisions</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <button id="sw" type="button" aria-pressed="true" style="width:44px; height:24px; border-radius:999px; border:1px solid var(--line); background:var(--accent); position:relative; cursor:pointer; transition:background .25s; flex:0 0 auto">
+    <span id="knob" style="position:absolute; top:2px; left:22px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .25s"></span>
+  </button>
+  <span class="path">runner.go:155</span> <code style="font-size:.8rem">askRules</code>
+  <span id="swlabel" style="margin-left:auto; font-size:.75rem; color:var(--accent); letter-spacing:.05em">IN THE BUILD · since 07-24</span>
+</div>
+<div style="padding:.7rem .8rem; font-size:.9rem">
+  <div>ask: <code>find net salary in these 8 PDFs</code></div>
+  <div id="ruleline" style="overflow:hidden; max-height:2.2rem; opacity:1; transition:max-height .3s, opacity .3s">
+    <mark style="background:var(--say-bg); color:var(--accent); padding:0 .25rem; border-radius:3px">+ tax year 2025 · attached not auto-relevant · combine splits</mark>
+  </div>
+  <div style="margin-top:.35rem">answer:
+    <span id="ans-on"><code>84'200</code> <span style="color:var(--ba-good-fg)">2025 certificate</span></span>
+    <span id="ans-off" style="display:none"><code>78'900</code> <span style="color:var(--ba-bad-fg)">2024 certificate, silently wrong</span></span>
+  </div>
+</div>
+</div>
+
+<h2 id="c2">stepper <span class="hint">drive one real value through its moments; for transformations and pipelines</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <button id="st-prev" type="button" class="btn">←</button>
+  <button id="st-next" type="button" class="btn primary">next →</button>
+  <span id="st-dots" style="letter-spacing:.3em; color:var(--muted)"></span>
+  <span id="st-ref" style="margin-left:auto"></span>
+</div>
+<div id="st-body" style="padding:.7rem .8rem; font-size:.9rem; min-height:4.6rem"></div>
+</div>
+
+<h2 id="c3">dial <span class="hint">a code constant as a knob; drag it, watch the consequence; for thresholds</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <span class="path">search.go:88</span> <code style="font-size:.8rem">minScore = <b id="dial-val" style="color:var(--accent)">0.35</b></code>
+  <input id="dial" type="range" min="5" max="95" step="5" value="35" style="margin-left:auto; width:min(260px, 40%); accent-color:var(--accent)">
+</div>
+<div style="padding:.7rem .8rem; font-size:.9rem">
+  <div>a vague field ("insurance") lights up <b id="dial-pages">3</b> of 40 pages at this score</div>
+  <div id="dial-verdict" style="margin-top:.3rem; color:var(--ba-good-fg)">the shipped value: enough to consider, top-10 cap never bites</div>
+</div>
+</div>
+
+<h2 id="c4">bind <span class="hint">hover the artifact, its meaning glows; hover the meaning, the clause glows; for prompts, records, configs</span></h2>
+<pre style="margin:1rem 0 0; line-height:2"><code>"find net salary in these 8 PDFs.
+ <span class="bd" data-k="a">it is tax year 2025</span>. <span class="bd" data-k="b">attached is not automatically relevant</span>.
+ <span class="bd" data-k="c">combine parts split across documents</span>."</code></pre>
+<ul class="plain" style="margin-top:.5rem; font-size:.88rem">
+<li class="bl" data-k="a"><b>the year fix</b>: the model used to guess, 07-24 ended that</li>
+<li class="bl" data-k="b"><b>the relevance guard</b>: uploaded does not mean evidence</li>
+<li class="bl" data-k="c"><b>the combine rule</b>: two banks, one total, split investments</li>
+</ul>
+<style>
+.bd { background: var(--say-bg); border-bottom: 2px solid var(--accent); border-radius: 2px; transition: background .15s; }
+.bd.glow, .bl.glow { background: var(--hl-lit); }
+.bl { transition: background .15s; border-radius: 4px; padding: 0 .25rem; cursor: default; }
+</style>
+
+<h2 id="c5">race <span class="hint">two actors, one row; run it with and without the lock; for concurrency</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <button id="race-run" type="button" class="btn primary">run the race</button>
+  <label style="display:flex; align-items:center; gap:.4rem; font-size:.85rem; cursor:pointer">
+    <input id="race-lock" type="checkbox" checked style="accent-color:var(--accent)">
+    <span class="path">repo.go:388</span> <code style="font-size:.8rem">SELECT ... FOR UPDATE</code>
+  </label>
+</div>
+<div style="padding:.7rem .8rem; font-size:.88rem">
+  <div>row: <code id="race-row">{"street": "Ahornweg 8", "checked": false}</code></div>
+  <div id="race-log" style="margin-top:.4rem; color:var(--muted); min-height:5.2rem; line-height:1.7"></div>
+</div>
+</div>
+
+<h2 id="c6">ledger <span class="hint">an invariant you can try to break; press the buttons, it holds; for guarantees</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <button id="led-fin" type="button" class="btn primary">finalize</button>
+  <button id="led-refin" type="button" class="btn">re-finalize</button>
+  <button id="led-claim" type="button" class="btn">worker claims</button>
+  <span style="margin-left:auto"><span class="path">outbox.sql:9</span> <code style="font-size:.78rem">unique (token_id, event_type)</code></span>
+</div>
+<div style="padding:.7rem .8rem; font-size:.88rem">
+  <div id="led-row" style="font-family:ui-monospace,Menlo,monospace; font-size:.8rem; padding:.35rem .5rem; border:1px solid var(--line); border-radius:6px; transition:background .3s, border-color .3s">no row yet, press finalize</div>
+  <div style="margin-top:.4rem"><b>rows for this filing: <span id="led-count">0</span></b> <span style="color:var(--ba-good-fg)">the index makes a second row impossible, not just unlikely</span></div>
+  <div id="led-log" style="margin-top:.4rem; color:var(--muted); font-size:.82rem; line-height:1.7; min-height:1.4rem"></div>
+</div>
+</div>
+
+<h2 id="c7">probe <span class="hint">feed it a real input, watch which branch takes it; for parsers and conditionals</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <span style="font-size:.8rem; color:var(--muted)">feed:</span>
+  <button class="probe-in btn mono" data-v="comma" type="button">"Ahornweg 8, 3097 Liebefeld"</button>
+  <button class="probe-in btn mono" data-v="nocomma" type="button">"Ahornweg 8 3097 Liebefeld"</button>
+  <span style="margin-left:auto"><span class="path">address_edit.go:49</span></span>
+</div>
+<div style="padding:.7rem .8rem; font-size:.88rem">
+  <div id="probe-route" style="color:var(--muted)">press an input</div>
+  <div style="margin-top:.35rem">street: <code id="probe-street">?</code> · city: <code id="probe-city">?</code></div>
+</div>
+</div>
+
+<h2 id="c8">map <span class="hint">the whole system in one glance; every node is a code ref; the skeleton the other blocks hang on</span></h2>
+<div style="margin-top:1rem; display:flex; gap:.4rem; align-items:center; flex-wrap:wrap">
+  <span class="mapnode" data-ref="webform, finalize call">webform</span><span style="color:var(--accent); font-weight:700">→</span>
+  <span class="mapnode" data-ref="repo.go:427 EnqueueExtractionRow">backend</span><span style="color:var(--accent); font-weight:700">→</span>
+  <span class="mapnode" data-ref="outbox.sql:9 one row per filing">outbox</span><span style="color:var(--accent); font-weight:700">→</span>
+  <span class="mapnode" data-ref="runner.go:95 the worker run">worker</span><span style="color:var(--accent); font-weight:700">→</span>
+  <span class="mapnode" data-ref="repo.go:427 the answers blob">blob</span><span style="color:var(--accent); font-weight:700">→</span>
+  <span class="mapnode" data-ref="portal GET, 73 rows">portal</span>
+</div>
+<p style="font-size:.85rem; margin:.5rem 0 0"><span style="color:var(--muted)">hover a node:</span> <code id="map-ref">…</code></p>
+<p style="color:var(--muted); font-size:.85rem; margin:.3rem 0 0">on a real page this sits sticky at the top; the node you are reading about glows as you scroll, and clicking a node jumps to its stage. the map is the "whole model" axis: everything else installs into it.</p>
+<style>
+.mapnode { border:1px solid var(--line); border-radius:8px; padding:.25rem .6rem; background:var(--panel); font-size:.85rem; cursor:default; transition:border-color .15s, background .15s; }
+.mapnode:hover { border-color:var(--accent); background:var(--say-bg); }
+</style>
+
+<h2 id="c9">space <span class="hint">embeddings as geometry: text becomes a point, near means similar; for vector search</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <span style="font-size:.8rem; color:var(--muted)">embed the query:</span>
+  <button class="sp-q btn" data-q="salary" type="button">"net salary"</button>
+  <button class="sp-q btn" data-q="insurance" type="button">"insurance premium"</button>
+  <span style="margin-left:auto"><span class="path">embed.go:41</span> <code style="font-size:.78rem">3072-dim, drawn in 2</code></span>
+</div>
+<div style="padding:.5rem .8rem">
+<svg id="sp-svg" viewBox="0 0 320 190" style="width:100%; max-width:520px; display:block">
+  <g font-size="8" fill="currentColor">
+  <circle class="sp-p" data-s="0.81,0.22" cx="60" cy="55" r="5" fill="var(--accent)" opacity=".45"/><text x="68" y="52" opacity=".7">salary_cert p1</text>
+  <circle class="sp-p" data-s="0.74,0.25" cx="78" cy="72" r="5" fill="var(--accent)" opacity=".45"/><text x="86" y="70" opacity=".7">payslip p2</text>
+  <circle class="sp-p" data-s="0.69,0.28" cx="52" cy="82" r="5" fill="var(--accent)" opacity=".45"/><text x="60" y="92" opacity=".7">contract p4</text>
+  <circle class="sp-p" data-s="0.31,0.78" cx="228" cy="62" r="5" fill="var(--accent)" opacity=".45"/><text x="236" y="60" opacity=".7">axa_policy p1</text>
+  <circle class="sp-p" data-s="0.28,0.72" cx="245" cy="82" r="5" fill="var(--accent)" opacity=".45"/><text x="253" y="80" opacity=".7">premium_stmt p3</text>
+  <circle class="sp-p" data-s="0.24,0.66" cx="215" cy="95" r="5" fill="var(--accent)" opacity=".45"/><text x="223" y="105" opacity=".7">helsana p2</text>
+  <circle class="sp-p" data-s="0.22,0.30" cx="150" cy="150" r="5" fill="var(--accent)" opacity=".45"/><text x="158" y="148" opacity=".7">vw_golf_lease p1</text>
+  <circle class="sp-p" data-s="0.19,0.27" cx="128" cy="162" r="5" fill="var(--accent)" opacity=".45"/><text x="136" y="172" opacity=".7">eco_sticker p1</text>
+  </g>
+  <text id="sp-star" x="-20" y="-20" font-size="13" fill="var(--ba-bad-fg)" style="transition:x .4s, y .4s">★</text>
+</svg>
+<div id="sp-read" style="font-size:.85rem; color:var(--muted); padding:0 0 .3rem">press a query: it lands as a point too, and the nearest pages light up with their cosine scores</div>
+</div>
+</div>
+
+<h2 id="c10">angle <span class="hint">the cosine itself, felt by hand; for the math under the search</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <span class="path">search.go:74</span> <code style="font-size:.8rem">cos(query, page) = <b id="ang-val" style="color:var(--accent)">0.94</b></code>
+  <input id="ang" type="range" min="0" max="180" step="2" value="20" style="margin-left:auto; width:min(240px, 38%); accent-color:var(--accent)">
+</div>
+<div style="padding:.5rem .8rem; display:flex; gap:1.2rem; align-items:center; flex-wrap:wrap">
+<svg viewBox="0 0 240 140" style="width:250px; flex:0 0 auto">
+  <path id="ang-arc" d="" fill="var(--say-bg)" stroke="var(--accent)" stroke-width="1"/>
+  <line id="ang-gate" x1="30" y1="120" x2="0" y2="0" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 3" opacity=".6"/>
+  <text id="ang-gate-lab" font-size="8" fill="var(--muted)">0.35 gate</text>
+  <line x1="30" y1="120" x2="130" y2="120" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round"/>
+  <text x="112" y="133" font-size="9" fill="var(--accent)" font-weight="600">query</text>
+  <line id="ang-vec" x1="30" y1="120" x2="0" y2="0" stroke="var(--ba-bad-fg)" stroke-width="3.5" stroke-linecap="round"/>
+  <text id="ang-lab" font-size="9" fill="var(--ba-bad-fg)" font-weight="600">page</text>
+  <text id="ang-deg" font-size="10" fill="currentColor" font-weight="700"></text>
+  <circle cx="30" cy="120" r="3" fill="currentColor"/>
+</svg>
+<div style="font-size:.88rem; min-width:200px; flex:1">
+  <div id="ang-zone" style="font-weight:600; color:var(--ba-good-fg)">nearly the same meaning</div>
+  <div style="color:var(--muted); margin-top:.25rem">length never matters, only direction: a 40-page doc and a 3-word query still compare fairly. the dashed ray is cos = 0.35, the shipped gate</div>
+</div>
+</div>
+</div>
+
+<h2 id="c12">stack <span class="hint">the context window assembled part by part, against a budget; for prompt engineering</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <label style="display:flex; gap:.3rem; align-items:center; font-size:.8rem; cursor:pointer"><input class="stk" data-t="60" type="checkbox" checked style="accent-color:var(--accent)"> rules</label>
+  <label style="display:flex; gap:.3rem; align-items:center; font-size:.8rem; cursor:pointer"><input class="stk" data-t="25" type="checkbox" checked style="accent-color:var(--accent)"> question</label>
+  <label style="display:flex; gap:.3rem; align-items:center; font-size:.8rem; cursor:pointer"><input class="stk" data-t="900" type="checkbox" style="accent-color:var(--accent)"> form JSON</label>
+  <label style="display:flex; gap:.3rem; align-items:center; font-size:.8rem; cursor:pointer"><input class="stk" data-t="3200" type="checkbox" checked style="accent-color:var(--accent)"> top-10 chunks</label>
+  <label style="display:flex; gap:.3rem; align-items:center; font-size:.8rem; cursor:pointer"><input class="stk" data-t="12800" type="checkbox" style="accent-color:var(--accent)"> all 40 pages</label>
+  <span style="margin-left:auto"><span class="path">runner.go:155</span></span>
+</div>
+<div style="padding:.7rem .8rem; font-size:.88rem">
+  <div style="height:12px; border:1px solid var(--line); border-radius:6px; overflow:hidden"><div id="stk-bar" style="height:100%; width:41%; background:var(--accent); transition:width .3s, background .3s"></div></div>
+  <div style="margin-top:.35rem"><b id="stk-tok">3'285</b> / 8'000 token budget · <span id="stk-verdict" style="color:var(--ba-good-fg)">fits, the model reads everything it is given</span></div>
+</div>
+</div>
+
+<h2 id="c13">chain <span class="hint">a value rides the call graph, forward for dataflow, backward for provenance; each hop clickable, each function a code ref</span></h2>
+<div class="blk">
+<div class="blk-head">
+  <button id="ch-run" type="button" class="btn primary">send one PDF through</button>
+  <span style="font-size:.8rem; color:var(--muted)">hover a function for its ref</span>
+  <span id="ch-ref" style="margin-left:auto"></span>
+</div>
+<div style="padding:.7rem .8rem">
+<div style="display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; font-size:.8rem; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+  <span class="ch-n" data-ref="chunk.go:120" data-out="8 pages of OCR text" data-desc="cuts the PDF into one OCR text chunk per page, page boundaries preserved">chunk(pdf) → pages</span><span class="ch-a">⇒</span>
+  <span class="ch-n" data-ref="embed.go:41" data-out="8 vectors, 3072-dim each" data-desc="turns each page into 3072 numbers, meaning becomes direction">embed(pages) → vecs</span><span class="ch-a">⇒</span>
+  <span class="ch-n" data-ref="search.go:88" data-out="hit: cert p1, cos 0.81" data-desc="compares the query vector against every page vector, keeps what clears 0.35, best first">ann(vecs, q) → hit</span><span class="ch-a">⇒</span>
+  <span class="ch-n" data-ref="repo.go:427" data-out="blob row: 84'200" data-desc="writes the winning answer into the filing's blob, source page attached">store(hit) → row</span>
+</div>
+<div style="margin-top:.55rem; display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap">
+  <span style="font-size:.75rem; color:var(--muted); flex:0 0 auto">the value now:</span>
+  <span id="ch-val" style="border:1px solid var(--accent); border-radius:999px; padding:.1rem .6rem; font-size:.78rem; background:var(--say-bg); transition:all .3s">salary_cert_2025.pdf</span>
+</div>
+<div id="ch-desc" style="margin-top:.4rem; font-size:.84rem; color:var(--muted); min-height:1.3rem">click a function, or send the PDF through</div>
+</div>
+</div>
+<style>
+.ch-n { border:1px solid var(--line); border-radius:8px; padding:.25rem .55rem; transition:all .3s; cursor:pointer; }
+.ch-n:hover { border-color:var(--accent); }
+.ch-n.hot { border-color:var(--accent); background:var(--say-bg); }
+.ch-a { color:var(--accent); font-weight:700; }
+</style>
+
+<h2 id="cmp">When each one fires</h2>
+<ul class="plain">
+<li><b>switch</b>: the stop is a fix or a decision; the question is "what does this line change"</li>
+<li><b>stepper</b>: the stop is a transformation; the question is "what happens to the data"</li>
+<li><b>dial</b>: the stop is a tuned constant; the question is "why this value"</li>
+<li><b>bind</b>: the stop is an artifact; the question is "what does each part mean"</li>
+<li><b>race</b>: the stop is concurrency; the question is "what happens when two hit at once"</li>
+<li><b>ledger</b>: the stop is a guarantee; the question is "can this ever be violated"</li>
+<li><b>probe</b>: the stop is a parser or branch; the question is "which way does my input go"</li>
+<li><b>map</b>: the whole PR; the question is "where am I in the system", the skeleton every other block installs into</li>
+<li><b>space</b>: the stop is vector search; the question is "what does embedding actually do"</li>
+<li><b>angle</b>: the stop is similarity math; the question is "what is cosine really measuring"</li>
+<li><b>stack</b>: the stop is context assembly; the question is "what does the model see, and why the cap"</li>
+<li><b>chain</b>: the stop is a function, call path, or a produced value; forward answers "what does the value become", backward answers "where did this number come from"</li>
+</ul>
+
+<script>
+(() => {
+  const sw = document.getElementById('sw'), knob = document.getElementById('knob');
+  const rule = document.getElementById('ruleline'), lab = document.getElementById('swlabel');
+  const on = document.getElementById('ans-on'), off = document.getElementById('ans-off');
+  sw.addEventListener('click', () => {
+    const now = sw.getAttribute('aria-pressed') !== 'true';
+    sw.setAttribute('aria-pressed', String(now));
+    sw.style.background = now ? 'var(--accent)' : 'var(--line)';
+    knob.style.left = now ? '22px' : '2px';
+    rule.style.maxHeight = now ? '2.2rem' : '0';
+    rule.style.opacity = now ? '1' : '0';
+    on.style.display = now ? '' : 'none';
+    off.style.display = now ? 'none' : '';
+    lab.textContent = now ? 'IN THE BUILD · since 07-24' : 'THE WORLD BEFORE 07-24';
+    lab.style.color = now ? 'var(--accent)' : 'var(--ba-bad-fg)';
+  });
+
+  const moments = [
+    { ref: 'runner.go:95', html: 'the filing arrives: form JSON, 8 PDFs, one magic link. the field <code>net salary</code> is on the leftover list (~40 today)' },
+    { ref: 'runner.go:155', html: 'the ask is built and <mark style="background:var(--say-bg); color:var(--accent); padding:0 .2rem; border-radius:3px">askRules staples on</mark>: year 2025, relevance guard, combine rule' },
+    { ref: 'search.go:88', html: 'the 8 PDFs are scored for this field: <code>salary_cert_2025.pdf p1</code> is the only page over 0.35' },
+    { ref: 'repo.go:427', html: 'one answer lands in the blob: <code>{"value": "84\'200", "source": "salary_cert_2025.pdf"}</code>' },
+  ];
+  let mi = 0;
+  const stBody = document.getElementById('st-body'), stRef = document.getElementById('st-ref'), stDots = document.getElementById('st-dots');
+  function stRender() {
+    stBody.innerHTML = moments[mi].html;
+    stRef.innerHTML = '<span class="path">' + moments[mi].ref + '</span>';
+    stDots.textContent = moments.map((_, i) => i === mi ? '●' : '○').join('');
+  }
+  document.getElementById('st-next').addEventListener('click', () => { mi = (mi + 1) % moments.length; stRender(); });
+  document.getElementById('st-prev').addEventListener('click', () => { mi = (mi + moments.length - 1) % moments.length; stRender(); });
+  stRender();
+
+  const dial = document.getElementById('dial');
+  function dialRender() {
+    const t = dial.value / 100;
+    document.getElementById('dial-val').textContent = t.toFixed(2);
+    const pages = Math.max(0, Math.round((0.95 - t) * 42) - 2);
+    document.getElementById('dial-pages').textContent = String(pages);
+    const v = document.getElementById('dial-verdict');
+    if (t < 0.25) { v.textContent = pages + ' candidates per field: the llm drowns, answers get noisy'; v.style.color = 'var(--ba-bad-fg)'; }
+    else if (t <= 0.45) { v.textContent = 'the shipped value: enough to consider, top-10 cap never bites'; v.style.color = 'var(--ba-good-fg)'; }
+    else { v.textContent = 'too strict: the real page often scores below this, fields come back empty'; v.style.color = 'var(--ba-bad-fg)'; }
+  }
+  dial.addEventListener('input', dialRender);
+  dialRender();
+
+  const raceLog = document.getElementById('race-log'), raceRow = document.getElementById('race-row');
+  let raceBusy = false;
+  const raceBtn = document.getElementById('race-run'), raceLockEl = document.getElementById('race-lock');
+  const raceDone = () => { raceBusy = false; raceBtn.disabled = false; raceLockEl.disabled = false; raceBtn.textContent = 'run the race'; };
+  raceBtn.addEventListener('click', () => {
+    if (raceBusy) return;
+    raceBusy = true;
+    raceBtn.disabled = true;
+    raceLockEl.disabled = true;
+    raceBtn.textContent = 'racing…';
+    const locked = document.getElementById('race-lock').checked;
+    raceLog.innerHTML = '';
+    raceRow.textContent = '{"street": "Ahornweg 8", "checked": false}';
+    const say = (t, c) => { raceLog.innerHTML += '<div style="color:' + (c || 'var(--muted)') + '">' + t + '</div>'; };
+    const steps = locked ? [
+      () => say('operator A: SELECT ... FOR UPDATE, row locked'),
+      () => say('operator B: SELECT ... FOR UPDATE, <b>waits</b>'),
+      () => { say('A writes street fix, commits'); raceRow.textContent = '{"street": "Ahornweg 8", "checked": true}'; },
+      () => say('B gets the lock, reads A\'s version, applies on top'),
+      () => { say('both edits survive, nothing lost', 'var(--ba-good-fg)'); raceDone(); },
+    ] : [
+      () => say('operator A reads the blob'),
+      () => say('operator B reads the same blob'),
+      () => { say('A writes the street fix'); raceRow.textContent = '{"street": "Ahornweg 8", "checked": true}'; },
+      () => { say('B writes its stale copy'); raceRow.textContent = '{"street": "Ahornweg 8", "checked": false}'; },
+      () => { say('A\'s correction silently erased', 'var(--ba-bad-fg)'); raceDone(); },
+    ];
+    steps.forEach((f, i) => setTimeout(f, 500 * (i + 1)));
+  });
+
+  let led = null;
+  const ledRow = document.getElementById('led-row'), ledCount = document.getElementById('led-count');
+  const ledLog = document.getElementById('led-log');
+  function ledSay(t, c) {
+    ledLog.innerHTML = '<div style="color:' + (c || 'var(--muted)') + '">' + t + '</div>' + ledLog.innerHTML;
+    while (ledLog.children.length > 3) ledLog.lastChild.remove();
+  }
+  function ledRender() {
+    ledRow.textContent = led ? JSON.stringify(led) : 'no row yet, press finalize';
+    ledCount.textContent = led ? '1' : '0';
+    ledRow.style.background = 'var(--say-bg)';
+    ledRow.style.borderColor = 'var(--accent)';
+    setTimeout(() => { ledRow.style.background = ''; ledRow.style.borderColor = 'var(--line)'; }, 500);
+  }
+  document.getElementById('led-fin').addEventListener('click', () => {
+    if (!led) {
+      led = { event: 'extraction.run', status: 'pending', attempts: 0 };
+      ledSay('INSERT: the row is born', 'var(--ba-good-fg)');
+    } else {
+      ledSay('INSERT hits the unique index, upserts the SAME row. still 1.', 'var(--accent)');
+    }
+    ledRender();
+  });
+  document.getElementById('led-refin').addEventListener('click', () => {
+    if (!led) { ledSay('nothing to re-finalize, no row yet'); return; }
+    const was = led.status;
+    led.status = 'pending'; led.attempts = 0;
+    ledSay(was === 'pending' ? 'already pending, reset is a no-op on purpose. still 1 row.' : 'same row reset to pending, attempts 0. the field set will be produced again. still 1 row.', 'var(--accent)');
+    ledRender();
+  });
+  document.getElementById('led-claim').addEventListener('click', () => {
+    if (!led) { ledSay('nothing to claim, no row yet'); return; }
+    if (led.status !== 'pending') { ledSay('nothing pending, the worker sees no work'); return; }
+    led.status = 'done'; led.attempts += 1;
+    ledSay('worker claimed it: done, attempts ' + led.attempts, 'var(--ba-good-fg)');
+    ledRender();
+  });
+
+  document.querySelectorAll('.probe-in').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.probe-in').forEach(x => x.classList.toggle('on', x === b));
+    const comma = b.dataset.v === 'comma';
+    document.getElementById('probe-route').innerHTML = comma
+      ? 'route: <b style="color:var(--ba-good-fg)">comma branch</b>, "street, zip city" accepted'
+      : 'route: <b style="color:var(--ba-bad-fg)">fallback branch</b>, no comma, parser gives up';
+    document.getElementById('probe-street').textContent = comma ? 'Ahornweg 8' : '';
+    document.getElementById('probe-city').textContent = comma ? 'Liebefeld' : '';
+  }));
+
+  document.querySelectorAll('.sp-q').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.sp-q').forEach(x => x.classList.toggle('on', x === b));
+    const qi = b.dataset.q === 'salary' ? 0 : 1;
+    const star = document.getElementById('sp-star');
+    star.setAttribute('x', qi === 0 ? 62 : 226);
+    star.setAttribute('y', qi === 0 ? 70 : 78);
+    const pts = [...document.querySelectorAll('.sp-p')];
+    const scored = pts.map(c => ({ c, s: parseFloat(c.dataset.s.split(',')[qi]) })).sort((a, b) => b.s - a.s);
+    pts.forEach(c => { c.setAttribute('opacity', '.2'); c.setAttribute('stroke', 'none'); });
+    scored.slice(0, 3).forEach(({ c }) => { c.setAttribute('opacity', '1'); c.setAttribute('stroke', 'var(--ba-good-fg)'); c.setAttribute('stroke-width', '2'); });
+    document.getElementById('sp-read').innerHTML = 'top pages for <b>' + b.textContent + '</b>: ' +
+      scored.slice(0, 3).map(({ c, s }) => c.nextElementSibling.textContent + ' <code>' + s.toFixed(2) + '</code>').join(' · ');
+  }));
+
+  const ang = document.getElementById('ang');
+  const AOX = 30, AOY = 120, AR = 100;
+  const angPt = (deg, r) => [AOX + r * Math.cos(deg * Math.PI / 180), AOY - r * Math.sin(deg * Math.PI / 180)];
+  {
+    const GATE = Math.acos(0.35) * 180 / Math.PI;
+    const [gx, gy] = angPt(GATE, AR);
+    const g = document.getElementById('ang-gate');
+    g.setAttribute('x2', gx); g.setAttribute('y2', gy);
+    const gl = document.getElementById('ang-gate-lab');
+    const [lx, ly] = angPt(GATE, AR + 4);
+    gl.setAttribute('x', lx - 12); gl.setAttribute('y', ly - 4);
+  }
+  function angRender() {
+    const deg = ang.value * 1, rad = deg * Math.PI / 180;
+    const [vx, vy] = angPt(deg, AR);
+    const vec = document.getElementById('ang-vec');
+    vec.setAttribute('x2', vx); vec.setAttribute('y2', vy);
+    const lab = document.getElementById('ang-lab');
+    const [labx, laby] = angPt(deg, AR + 12);
+    lab.setAttribute('x', labx - 10); lab.setAttribute('y', laby);
+    const [ax, ay] = angPt(0, 34);
+    const [bx, by] = angPt(deg, 34);
+    document.getElementById('ang-arc').setAttribute('d',
+      'M ' + AOX + ' ' + AOY + ' L ' + ax + ' ' + ay + ' A 34 34 0 ' + (deg > 180 ? 1 : 0) + ' 0 ' + bx + ' ' + by + ' Z');
+    const dl = document.getElementById('ang-deg');
+    const [dx, dy] = angPt(deg / 2, 48);
+    dl.setAttribute('x', dx - 8); dl.setAttribute('y', dy + 3);
+    dl.textContent = deg + '\u00b0';
+    const c = Math.cos(rad);
+    document.getElementById('ang-val').textContent = c.toFixed(2);
+    const z = document.getElementById('ang-zone');
+    if (c > 0.8) { z.textContent = 'nearly the same meaning'; z.style.color = 'var(--ba-good-fg)'; }
+    else if (c > 0.35) { z.textContent = 'related, still over the gate'; z.style.color = 'var(--accent)'; }
+    else if (c > -0.1) { z.textContent = 'past the gate: unrelated, filtered out'; z.style.color = 'var(--muted)'; }
+    else { z.textContent = 'pointing away, opposite meaning'; z.style.color = 'var(--ba-bad-fg)'; }
+  }
+  ang.addEventListener('input', angRender);
+  angRender();
+
+  function stkRender() {
+    let t = 0;
+    document.querySelectorAll('.stk').forEach(c => { if (c.checked) t += +c.dataset.t; });
+    document.getElementById('stk-tok').textContent = t.toLocaleString("de-CH").replace(/,/g, "'");
+    const pct = Math.min(100, t / 8000 * 100);
+    const bar = document.getElementById('stk-bar');
+    bar.style.width = pct + '%';
+    bar.style.background = t > 8000 ? 'var(--ba-bad-fg)' : 'var(--accent)';
+    const v = document.getElementById('stk-verdict');
+    if (t > 8000) { v.textContent = 'over budget: the model truncates or drowns, answers degrade. this is why top-10 exists'; v.style.color = 'var(--ba-bad-fg)'; }
+    else { v.textContent = 'fits, the model reads everything it is given'; v.style.color = 'var(--ba-good-fg)'; }
+  }
+  document.querySelectorAll('.stk').forEach(c => c.addEventListener('change', stkRender));
+  stkRender();
+
+  const chBtn = document.getElementById('ch-run');
+  const chNodes = [...document.querySelectorAll('.ch-n')];
+  const chRef = document.getElementById('ch-ref'), chVal = document.getElementById('ch-val');
+  const chDesc = document.getElementById('ch-desc');
+  function chShow(n) {
+    chNodes.forEach(x => x.classList.toggle('hot', x === n));
+    chRef.innerHTML = '<span class="path">' + n.dataset.ref + '</span>';
+    chVal.textContent = n.dataset.out;
+    chDesc.textContent = n.dataset.desc;
+  }
+  chNodes.forEach(n => {
+    n.addEventListener('click', () => { if (!chBtn.disabled) chShow(n); });
+    n.addEventListener('mouseenter', () => {
+      if (!chBtn.disabled) chRef.innerHTML = '<span class="path">' + n.dataset.ref + '</span>';
+    });
+  });
+  chBtn.addEventListener('click', () => {
+    chBtn.disabled = true;
+    chBtn.textContent = 'flowing…';
+    chNodes.forEach(n => n.classList.remove('hot'));
+    chVal.textContent = 'salary_cert_2025.pdf';
+    chDesc.textContent = 'one real PDF enters the chain';
+    chNodes.forEach((n, i) => setTimeout(() => {
+      chShow(n);
+      if (i === chNodes.length - 1) { chBtn.disabled = false; chBtn.textContent = 'send one PDF through'; }
+    }, 750 * (i + 1)));
+  });
+
+  const mapRef = document.getElementById('map-ref');
+  document.querySelectorAll('.mapnode').forEach(n => {
+    n.addEventListener('mouseenter', () => { mapRef.textContent = n.dataset.ref; });
+  });
+
+  const glow = (k, onoff) => document.querySelectorAll('[data-k="' + k + '"]').forEach(el => el.classList.toggle('glow', onoff));
+  document.querySelectorAll('.bd, .bl').forEach(el => {
+    el.addEventListener('mouseenter', () => glow(el.dataset.k, true));
+    el.addEventListener('mouseleave', () => glow(el.dataset.k, false));
+  });
+})();
+</script>
+
 
 </main>
-<script id="skills-data" type="application/json">{{SKILLS}}</script>
+<script id="skills-data" type="application/json">[]</script>
 <script>
 	const links = [...document.querySelectorAll('#toc a')];
 	const targets = links.map(a => document.getElementById(a.hash.slice(1))).filter(Boolean);
@@ -800,8 +1277,7 @@
 		if (sel && sel.parent) {
 			chip.style.display = 'none';
 			const card = document.getElementById('qa-' + sel.parent);
-			if (card && chatlog.contains(card)) startSpotQuote(sel.text, savedRange, sel.stop);
-			else if (card) startQuoteReply(card, sel.text, savedRange);
+			if (card) startQuoteReply(card, sel.text, savedRange);
 			savedRange = null;
 			return;
 		}

@@ -1,6 +1,6 @@
 ---
 name: walkthrough
-description: Build a self-contained HTML walkthrough for presenting a change to a senior reviewer live, step by step through the real code. Use when the user invokes /walkthrough, or says they have to "walk someone through" a PR/feature/codebase, "present this on a call", "demo the code", or wants "a script for the review". Produces one HTML file of clickable file:line stops with scannable KEYWORD and KNOW MORE cues, never prose to read aloud. Part of the "understood" family of low-cognitive-load patterns.
+description: Build a self-contained HTML walkthrough for presenting a change to a senior reviewer live, step by step through the real code. Use when the user invokes /walkthrough, or says they have to "walk someone through" a PR/feature/codebase, "present this on a call", "demo the code", or wants "a script for the review". Produces one HTML file of clickable file:line stops carrying operable live blocks (switch, dial, chain, race...) whose controls are the code references themselves, never prose to read aloud. Part of the "understood" family of low-cognitive-load patterns.
 ---
 
 # walkthrough
@@ -14,11 +14,11 @@ The reader is the presenter, mid-call, talking. They glance at the page and look
 Exactly one file: a self-contained HTML page built from `assets/template.html`.
 
 - a pipeline block first: the whole journey in arrow lines, one real record from an actual run riding along, every line stamped with where it lives (`#page`, `#server`, ...)
-- stages down the middle ordered by the data's journey, every stop opening with an IN/OUT boundary box, each one a place to put the cursor
+- stages down the middle ordered by the data's journey, each stop a place to put the cursor
 - a decisions section, BEFORE/AFTER pairs, only the 2 or 3 that matter
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
 - every path and every bare line number is a link that opens the editor at that exact line
-- two cue types per stop, `KEYWORD` and `KNOW MORE`, both bullet fragments
+- live blocks inside the stops: operable components (a switch, a dial, a chain) whose control surface is a code reference; understanding is operated, not read
 - ask-from-selection: the reader's questions land as cards floating beside the highlighted text, answered live by the session that built the page; a discussion section at the end of the page takes questions not tied to any selection and can ask the session to reshape the page itself (Cmd+K jumps to it, and with a selection active Cmd+K quotes it there)
 - light and dark, prints, no external requests, no build step
 - served on a memorable local hostname so the user gets a URL, not a file path
@@ -39,23 +39,23 @@ The reader is a presenter defending code they did not write. The document must c
 
 1. **Flow over structure.** A -> B -> C with data moving through, never components-and-their-responsibilities. A stop that cannot say which stage of the journey it is in does not belong.
 2. **Data before implementation.** The unit of understanding is the record moving through the system, not the function. "form JSON in, ~30 answers and a leftover list out" is presenter knowledge; "what settleFromForm does" is author knowledge.
-3. **In and out before how.** Every stop opens with its boundary. Mechanism bullets come after, and only when the mechanism is the point.
+3. **In and out before how.** Name what enters and what leaves before any mechanism; in a live block that boundary is what the reader operates, not a labeled box.
 4. **One real instance rides the whole page.** A name, a number, a filename from the actual run. If a real run happened, harvest its values; schema-speak forces live translation mid-call.
 5. **One idea per line, flat lists, bold lead word.** Never group a list under sub-headers. Each line survives alone.
 6. **Change is a pair of states.** BEFORE what went wrong, AFTER what happens now. A single-state description leaves the reader asking "compared to what?".
 7. **Stamp everything for routing.** Every heading and stop carries where it lives: `#page`, `#server`, `#session`, a repo name, config-or-code. The reader triages before reading.
-8. **Compression by default, depth behind a question.** The page stays terse; expansion lives in KNOW MORE blocks the reader opens with their eyes only when a line deserves it.
+8. **Compression by default, depth behind a question.** The page stays terse; depth lives behind the ask loop, pulled by the reader when a line deserves it.
 
 Pick the format by situation, never by habit:
 
 | explaining | format |
 |---|---|
 | a process or flow | arrow chain, stage by stage |
-| a change | BEFORE/AFTER pair |
-| one piece of the system | IN and OUT rows, then cues |
+| a change | switch block; a BEFORE/AFTER pair when minor |
+| one piece of the system | the live block its type calls for (see the block table) |
 | a set of facts | flat numbered list, bold lead word |
-| a decision | BEFORE/AFTER plus the one-line reason |
-| something that may need depth | one line now, KNOW MORE beneath it |
+| a decision | switch or dial block; BEFORE/AFTER pair for minor ones |
+| something that may need depth | one line now; depth lives in the ask loop, the reader pulls it |
 
 ## Ordering: chronology, then cursor
 
@@ -69,19 +69,47 @@ Say the hop out loud in the step text: *Cmd-click `Foo`*, *Line 126, cmd-click `
 
 ## Anatomy of a stop
 
+A stop is three things, in this order: one anchor line (the action plus the `file:line` link), one **live block** that installs this stop's piece of the model, and at most two think-lines under it, each shaped `thing → meaning`. Nothing else. No KEYWORD, no KNOW MORE, no IN/OUT boxes, no labels about the page's own taxonomy; a label appears only when it is an actor in the thought (WORKER, BEFORE, a function name).
+
 ```html
 <li id="s3">
-	<div class="io">
-		<div><b>IN</b><span>the 170 byte record over loopback</span></div>
-		<div><b>OUT</b><span>1 appended line in questions.jsonl</span></div>
-	</div>
 	<p><span class="action">Click</span> <a class="path" href="...">serve.py:129</a> <code>do_POST</code></p>
-	<div class="say"><ul><li>...</li><li>...</li></ul></div>
-	<div class="ask"><b>Question?</b><ul><li>...</li></ul></div>
+	<!-- one live block here, copied from assets/blocks.html and adapted -->
+	<ul class="think">
+		<li><b>append holds a lock</b> → two clicks can land the same instant</li>
+	</ul>
 </li>
 ```
 
-The `io` box comes first, always: what enters, what leaves, with the real run's numbers. A `<pre>` snippet between the click line and the cues is optional, only when a cue names a variable that must be visible; six lines maximum, elided with `...`. If the snippet needs more to make its point, the stop is really two stops.
+### The live blocks
+
+Reference implementations for every block live in `assets/blocks.html`; copy the matching one and adapt its facts, refs, and element ids (namespace ids per stop). Pick by what the stop IS:
+
+| block | fires when the stop is | the reader |
+|---|---|---|
+| switch | a fix or decision | toggles the line in and out of existence, watches its world change |
+| stepper | a transformation | drives one real value through its moments, each moment lighting its code ref |
+| dial | a tuned constant | drags the value, watches the consequence, sees the shipped value marked |
+| bind | an artifact (prompt, record, config) | hovers a clause, its meaning glows, and back |
+| race | concurrency | runs two actors at one row, with and without the lock |
+| ledger | a guarantee or invariant | tries to break it with buttons; it holds, and says why |
+| probe | a parser or branch | feeds real inputs, watches which branch takes each |
+| map | the whole system | sees the skeleton, every node a code ref; sticky, current node glowing |
+| space | vector search | embeds a query, watches the nearest pages light with scores |
+| angle | similarity math | drags the angle, feels cosine fall past the shipped gate |
+| stack | context assembly | assembles the window part by part against the token budget |
+| chain | a function, call path, or a value's origin | clicks any hop for its value and one-line description, or runs the whole flow; forward for dataflow, backward for provenance ("trace this value back") |
+
+**The block contract, non-negotiable:**
+
+- the control is fused to a real `file:line` chip; what the line does and where it lives are one object
+- every value shown comes from the actual run, never invented
+- every interaction produces a visible utterance; a refused action says why it refused
+- a running block disables its controls and says it is running ("racing…"); they restore when done
+- a selected option shows its selected state
+- one-line function descriptions appear only on essential stops, never everywhere
+
+Use a block only where operating it teaches something; a stop whose whole content is one fact takes a think-line, not a component. Volunteer the weak spot before the reviewer finds it, as a think-line or a BEFORE/AFTER pair. Never pose a question the reviewer already decided.
 
 The page opens with the pipeline block, the whole journey before any stop:
 
@@ -107,25 +135,6 @@ And decisions render as state pairs, in their own late section, only the 2 or 3 
 ```
 
 All of these classes (`io`, `pipe`, `rec`, `where`, `tag`, `ba`) ship in the template's stylesheet; write the markup, never inline styles.
-
-## KEYWORD cues
-
-The default block. What this code is **for**, in fragments.
-
-- **Purpose first, mechanism second, and only if the mechanism is the point.** "Turns one document into its pages, each stored on its own, so search can point at a page instead of a whole file" beats "downloads, splits, uploads".
-- **Bullet fragments, never sentences.** One idea per bullet. The presenter builds the sentence, the page does not.
-- **A bullet that survives deletion should be deleted.** "Both or neither" says nothing without naming the two things.
-- **Point at what is on screen.** If a variable in the snippet is the proof of the claim, name it: "`qtx` means this runs inside the submit's own database write".
-
-## KNOW MORE cues
-
-An anticipated question, bolded, with a fragment answer. These are the ones that save the call.
-
-- **Never include a question the reviewer already decided.** If the pattern was their call, their convention, or their explicit instruction, asking "why did we do it this way" reads as not knowing it was theirs. Convert it into a KEYWORD fragment that credits it instead: "lives here per your ruling, the shared service stays stateless".
-- **Only genuinely open questions.** Things decided during the work that the reviewer has not seen.
-- **Not on every stop.** Restraint is what makes the real ones land. A stop with an obvious answer gets nothing.
-- **Favour failure modes.** What happens on partial failure, on retry, on re-run, on malformed input, on a shrinking dataset, on a concurrent worker. That is where a senior reviewer's attention actually goes.
-- **Volunteer the weak spot before they find it.** Anything removed, anything unproven, anything measured on a small sample. Put it in the document. Being told beats being caught.
 
 ## Language rules
 
@@ -179,7 +188,7 @@ Built from the document, not hand-maintained.
 1. Copy `assets/template.html`, replace `{{TITLE}}`, `{{SUBTITLE}}`, `{{NAV}}`, `{{BODY}}`, `{{SKILLS}}`.
    `{{SKILLS}}` is a JSON array powering the `/` dropdown in the page's ask box: `[{"name": "caveman-english", "hint": "blunt clipped rewording"}, ...]`, hint being the first clause of the skill's description, under 60 chars.
    Curate it from the session's live skill list, never a hardcoded set. Include a skill only if it acts on words: takes the selection (or the question) as text and produces a card answer, rewording, condensing, explaining, translating. Everything code-shaped stays out: skills that generate or edit code, review diffs, run tests or the app, build pages, or touch infrastructure, including `walkthrough` itself. The test is the presenter mid-call: if the skill could not finish as 2 to 4 bullets on the card while they keep talking, it does not belong in the menu. Left unreplaced it degrades to no dropdown, nothing breaks.
-2. Write the body: the pipeline block, then the stages, then the decisions, then any closing sections.
+2. Write the body: the pipeline block, then the stages (each stop with its live block, copied from `assets/blocks.html` and adapted), then the decisions, then any closing sections.
 3. Give every `<h2>` an `id`, every stop `<li>` an `id`, then build the nav from those.
 4. Link the paths, then link the bare line numbers, using the editor scheme detected for this machine.
 5. Verify.
@@ -194,7 +203,7 @@ Run all of these. Report the counts, do not claim it works.
 - every `href="...file..."` target exists on disk
 - link count equals id count
 - no unclosed tags
-- no cue block without a list, a single-item block still gets a bullet, otherwise the question runs into the answer
+- every block control operates: buttons press and restore, sliders drive their readouts, nodes click, busy states disable and come back, refusals speak. Click through every block before serving
 - no banned phrase survives
 - click two or three sidebar links yourself
 - fetch the served URL and confirm it returns 200 with the expected byte count
