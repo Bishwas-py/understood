@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import http.server
+import json
 import re
 import socket
 import socketserver
@@ -67,8 +68,33 @@ def open_in_browser(url: str) -> None:
     webbrowser.open(url)
 
 
+def qa_paths(path: Path) -> tuple[Path, Path]:
+    return (
+        path.with_name(path.stem + ".questions.jsonl"),
+        path.with_name(path.stem + ".answers.jsonl"),
+    )
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    records = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(record, dict):
+                records.append(record)
+    return records
+
+
 def serve(path: Path, port: int) -> None:
     body = path.read_bytes()
+    questions_path, answers_path = qa_paths(path)
+    append_lock = threading.Lock()
 
     class Handler(http.server.BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -78,12 +104,60 @@ def serve(path: Path, port: int) -> None:
                 self.send_response(204)
                 self.end_headers()
                 return
+            if self.path.split("?", 1)[0] == "/qa.json":
+                payload = json.dumps(
+                    {
+                        "questions": read_jsonl(questions_path),
+                        "answers": read_jsonl(answers_path),
+                    },
+                    ensure_ascii=False,
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(payload)
+                return
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
+
+        def do_POST(self):  # noqa: N802
+            if self.path != "/ask":
+                self.send_response(404)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                length = 0
+            if not 0 < length <= 65536:
+                self.send_response(413)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            try:
+                raw = json.loads(self.rfile.read(length))
+                record = {
+                    "id": str(raw["id"])[:64],
+                    "stop": str(raw.get("stop", ""))[:64],
+                    "selection": str(raw.get("selection", ""))[:2000],
+                    "question": str(raw["question"])[:2000],
+                }
+            except (KeyError, TypeError, ValueError):
+                self.send_response(400)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            with append_lock, questions_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            self.send_response(204)
+            self.end_headers()
 
         def log_message(self, *args):  # quiet
             pass
@@ -116,6 +190,9 @@ def main() -> int:
 
     # flush: the caller usually backgrounds this and reads the URL from a log
     print(url, flush=True)
+    questions_path, answers_path = qa_paths(path)
+    print(f"questions: {questions_path}", file=sys.stderr, flush=True)
+    print(f"answers:   {answers_path}", file=sys.stderr, flush=True)
     if port != BASE_PORT and not args.port:
         print(
             f"(port {BASE_PORT} was busy; on {port} the browser may ask to allow the editor link once more)",

@@ -158,6 +158,27 @@ Browsers resolve `*.localhost` to loopback on their own, no DNS and no `/etc/hos
 
 Run it in the background, read the URL from its output, hand that to the user. Say the port dies when the process does.
 
+## Watch for questions
+
+The page asks back. Selecting text on it floats an **Ask** chip; the question lands in `<stem>.questions.jsonl` next to the HTML (serve.py prints both file paths on stderr). Serving is not finished until you are listening:
+
+```bash
+python3 assets/wait_question.py <stem>.questions.jsonl <stem>.answers.jsonl
+```
+
+Run that in the background too. It blocks until a question has no answer, prints the pending question(s) as JSON lines (`id`, `stop`, `selection`, `question`), and exits; that exit is your wake-up. Answer it, then restart the waiter. Append the answer with the same helper, text on stdin:
+
+```bash
+python3 assets/wait_question.py <q.jsonl> <a.jsonl> --answer <id> <<'EOF'
+- the gate at `formmap.go:50` runs before any mapping is read
+- "no" there marks every `properties[]` path NotApplicable, so nothing downstream can invent a value
+EOF
+```
+
+The page polls and pins the answer under the stop the selection came from, so answer in the page's own voice: 2 to 4 bullets starting `- `, glanceable, `file:line` in backticks, an editor link as `[formmap.go:50](cursor://file/...)` when pointing somewhere is faster than describing it. No paragraphs; the presenter reads this mid-call. The card renders only that mini-markdown (bullets, backtick code, `cursor://`/`vscode://`/http links), nothing else.
+
+Keep the watch loop running until the user says stop. Questions asked while nobody is listening queue in the file and the card says so; answer them whenever the user brings the walkthrough back up.
+
 ## Read the system before you write the file
 
 Three things depend on where this is running. Detect them, do not assume.

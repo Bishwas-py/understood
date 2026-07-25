@@ -184,6 +184,71 @@
 	th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
 	ul.plain { padding-left: 1.1rem; margin: .4rem 0; }
 	ul.plain li { margin-bottom: .3rem; }
+	/* Ask-from-selection: floating chip, question input, pinned Q&A card. */
+	#askchip, #askpop { position: absolute; z-index: 60; }
+	#askchip {
+		display: none;
+		padding: .3rem .75rem;
+		border: 0;
+		border-radius: 999px;
+		background: var(--accent);
+		color: #fff;
+		font-size: .78rem;
+		font-weight: 600;
+		cursor: pointer;
+		box-shadow: var(--shadow);
+	}
+	#askpop {
+		display: none;
+		width: min(420px, 90vw);
+		padding: .4rem;
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		background: var(--panel);
+		box-shadow: var(--shadow);
+	}
+	#askpop input {
+		width: 100%;
+		border: 0;
+		outline: none;
+		background: transparent;
+		color: var(--fg);
+		font: inherit;
+		font-size: .9rem;
+		padding: .25rem .35rem;
+	}
+	.qa {
+		border: 1px solid var(--line);
+		border-left: 3px solid var(--accent);
+		border-radius: 0 6px 6px 0;
+		background: var(--panel);
+		padding: .55rem .85rem .6rem;
+		margin: .6rem 0 0;
+		font-size: .9rem;
+	}
+	.qa::before {
+		content: "ASKED";
+		display: block;
+		font-size: .65rem;
+		letter-spacing: .09em;
+		color: var(--accent);
+		font-weight: 700;
+		margin-bottom: .15rem;
+	}
+	.qa-sel {
+		color: var(--muted);
+		border-left: 2px solid var(--line);
+		padding-left: .5rem;
+		margin: 0 0 .25rem;
+		font-size: .82rem;
+		overflow-wrap: anywhere;
+	}
+	.qa-q { font-weight: 600; margin: 0; }
+	.qa-a { margin: .3rem 0 0; }
+	.qa-a p { margin: .15rem 0 0; }
+	.qa-a ul { margin: .1rem 0 0; padding-left: 1.05rem; }
+	.qa-a li { margin: .12rem 0; }
+	.qa-status { color: var(--muted); font-size: .78rem; margin: .3rem 0 0; }
 </style>
 </head>
 <body>
@@ -206,8 +271,148 @@
 		});
 	}, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
 	targets.forEach(t => spy.observe(t));
+
+	// Ask-from-selection: POST to serve.py, poll /qa.json, pin cards under stops.
+	const mainEl = document.querySelector('main');
+	const chip = document.createElement('button');
+	chip.id = 'askchip';
+	chip.type = 'button';
+	chip.textContent = 'Ask';
+	const pop = document.createElement('div');
+	pop.id = 'askpop';
+	const askInput = document.createElement('input');
+	askInput.placeholder = 'ask about this selection…';
+	pop.append(askInput);
+	document.body.append(chip, pop);
+
+	let sel = null;
+	const pendingSince = {};
+	let pollTimer = null;
+
+	function hideAsk() { chip.style.display = 'none'; pop.style.display = 'none'; }
+
+	document.addEventListener('pointerup', e => {
+		if (chip.contains(e.target) || pop.contains(e.target)) return;
+		setTimeout(placeChip, 1);
+	});
+	document.addEventListener('keydown', e => { if (e.key === 'Escape') hideAsk(); });
+
+	function placeChip() {
+		if (pop.style.display === 'block') return;
+		const s = getSelection();
+		const text = s ? String(s).trim() : '';
+		if (!text || text.length < 2 || s.isCollapsed) { chip.style.display = 'none'; return; }
+		let node = s.anchorNode;
+		if (node && node.nodeType !== 1) node = node.parentElement;
+		if (!node || !mainEl.contains(node)) { chip.style.display = 'none'; return; }
+		const stop = node.closest('ol.steps > li[id]');
+		const r = s.getRangeAt(0).getBoundingClientRect();
+		sel = { text: text.slice(0, 2000), stop: stop ? stop.id : '' };
+		chip.style.top = scrollY + r.bottom + 8 + 'px';
+		chip.style.left = scrollX + Math.max(8, Math.min(r.left + r.width / 2 - 24, innerWidth - 90)) + 'px';
+		chip.style.display = 'block';
+	}
+
+	chip.addEventListener('click', () => {
+		pop.style.top = chip.style.top;
+		pop.style.left = chip.style.left;
+		chip.style.display = 'none';
+		pop.style.display = 'block';
+		askInput.value = '';
+		askInput.focus();
+	});
+
+	askInput.addEventListener('keydown', e => {
+		if (e.key !== 'Enter') return;
+		const question = askInput.value.trim();
+		if (!question || !sel) return;
+		hideAsk();
+		getSelection().removeAllRanges();
+		const id = crypto.randomUUID ? crypto.randomUUID()
+			: 'q' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+		const rec = { id, stop: sel.stop, selection: sel.text, question };
+		pendingSince[id] = Date.now();
+		upsertCard(rec, undefined);
+		fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
+			.then(r => { if (!r.ok) throw 0; startPolling(); })
+			.catch(() => setStatus(id, 'failed to send, is serve.py still running?'));
+	});
+
+	function esc(t) { return t.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+	function inline(t) {
+		return t
+			.replace(/\[([^\]]+)\]\(((?:cursor|vscode|https?):[^)\s]+)\)/g, '<a href="$2">$1</a>')
+			.replace(/`([^`]+)`/g, '<code>$1</code>');
+	}
+	function renderAnswer(text) {
+		const out = [];
+		let bullets = null;
+		for (const line of text.split('\n')) {
+			const t = line.trim();
+			if (t.startsWith('- ')) {
+				if (!bullets) { bullets = []; out.push(bullets); }
+				bullets.push('<li>' + inline(esc(t.slice(2))) + '</li>');
+			} else {
+				bullets = null;
+				if (t) out.push('<p>' + inline(esc(t)) + '</p>');
+			}
+		}
+		return out.map(x => Array.isArray(x) ? '<ul>' + x.join('') + '</ul>' : x).join('');
+	}
+
+	function upsertCard(q, answer) {
+		let card = document.getElementById('qa-' + q.id);
+		if (!card) {
+			card = document.createElement('div');
+			card.className = 'qa';
+			card.id = 'qa-' + q.id;
+			const selP = document.createElement('p');
+			selP.className = 'qa-sel';
+			selP.textContent = q.selection.length > 220 ? q.selection.slice(0, 220) + '…' : q.selection;
+			const qP = document.createElement('p');
+			qP.className = 'qa-q';
+			qP.textContent = q.question;
+			const aDiv = document.createElement('div');
+			aDiv.className = 'qa-a';
+			const status = document.createElement('p');
+			status.className = 'qa-status';
+			card.append(selP, qP, aDiv, status);
+			const host = q.stop && document.getElementById(q.stop);
+			(host || mainEl).append(card);
+		}
+		if (answer !== undefined) {
+			delete pendingSince[q.id];
+			card.querySelector('.qa-a').innerHTML = renderAnswer(answer);
+			card.querySelector('.qa-status').textContent = '';
+		} else {
+			if (!(q.id in pendingSince)) pendingSince[q.id] = Date.now();
+			const waited = Date.now() - pendingSince[q.id];
+			setStatus(q.id, waited > 60000 ? 'queued, no session listening; it stays saved' : 'answering…');
+		}
+	}
+	function setStatus(id, text) {
+		const card = document.getElementById('qa-' + id);
+		if (card) card.querySelector('.qa-status').textContent = text;
+	}
+
+	async function syncQA() {
+		try {
+			const r = await fetch('/qa.json', { cache: 'no-store' });
+			const d = await r.json();
+			const answers = {};
+			for (const a of d.answers) answers[a.id] = a.answer;
+			let pending = false;
+			for (const q of d.questions) {
+				upsertCard(q, answers[q.id]);
+				if (answers[q.id] === undefined) pending = true;
+			}
+			if (pending) startPolling(); else stopPolling();
+		} catch (e) { /* server gone; leave the cards as they are */ }
+	}
+	function startPolling() { if (!pollTimer) pollTimer = setInterval(syncQA, 2000); }
+	function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
+	syncQA();
 </script>
 
-</body>
 </body>
 </html>
