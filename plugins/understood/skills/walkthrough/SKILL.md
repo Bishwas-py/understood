@@ -13,10 +13,13 @@ The reader is the presenter, mid-call, talking. They glance at the page and look
 
 Exactly one file: a self-contained HTML page built from `assets/template.html`.
 
+- a pipeline block first: the whole journey in arrow lines, one real record from an actual run riding along, every line stamped with where it lives (`#page`, `#server`, ...)
+- stages down the middle ordered by the data's journey, every stop opening with an IN/OUT boundary box, each one a place to put the cursor
+- a decisions section, BEFORE/AFTER pairs, only the 2 or 3 that matter
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
-- numbered stops down the middle, each one a place to put the cursor
 - every path and every bare line number is a link that opens the editor at that exact line
 - two cue types per stop, `KEYWORD` and `KNOW MORE`, both bullet fragments
+- ask-from-selection: the reader's questions land as cards floating beside the highlighted text, answered live by the session that built the page
 - light and dark, prints, no external requests, no build step
 - served on a memorable local hostname so the user gets a URL, not a file path
 
@@ -29,6 +32,30 @@ Default output: `~/Downloads/<slug>-walkthrough.html`, then served on a stable l
 **Get the change.** The diff, the PR, the branch. What is actually new versus what was already there.
 
 **Find the entry point.** Not the most interesting file. The place the request or the data actually enters the system.
+
+## Write for how the reader reads
+
+The reader is a presenter defending code they did not write. The document must carry the understanding to them; a walkthrough that only works for its author is a diff with decoration. Eight rules, and they outrank stylistic preference:
+
+1. **Flow over structure.** A -> B -> C with data moving through, never components-and-their-responsibilities. A stop that cannot say which stage of the journey it is in does not belong.
+2. **Data before implementation.** The unit of understanding is the record moving through the system, not the function. "form JSON in, ~30 answers and a leftover list out" is presenter knowledge; "what settleFromForm does" is author knowledge.
+3. **In and out before how.** Every stop opens with its boundary. Mechanism bullets come after, and only when the mechanism is the point.
+4. **One real instance rides the whole page.** A name, a number, a filename from the actual run. If a real run happened, harvest its values; schema-speak forces live translation mid-call.
+5. **One idea per line, flat lists, bold lead word.** Never group a list under sub-headers. Each line survives alone.
+6. **Change is a pair of states.** BEFORE what went wrong, AFTER what happens now. A single-state description leaves the reader asking "compared to what?".
+7. **Stamp everything for routing.** Every heading and stop carries where it lives: `#page`, `#server`, `#session`, a repo name, config-or-code. The reader triages before reading.
+8. **Compression by default, depth behind a question.** The page stays terse; expansion lives in KNOW MORE blocks the reader opens with their eyes only when a line deserves it.
+
+Pick the format by situation, never by habit:
+
+| explaining | format |
+|---|---|
+| a process or flow | arrow chain, stage by stage |
+| a change | BEFORE/AFTER pair |
+| one piece of the system | IN and OUT rows, then cues |
+| a set of facts | flat numbered list, bold lead word |
+| a decision | BEFORE/AFTER plus the one-line reason |
+| something that may need depth | one line now, KNOW MORE beneath it |
 
 ## Ordering: chronology, then cursor
 
@@ -43,15 +70,43 @@ Say the hop out loud in the step text: *Cmd-click `Foo`*, *Line 126, cmd-click `
 ## Anatomy of a stop
 
 ```html
-<li>
-	<p><span class="action">Line 135</span>, cmd-click <code>chunkDocument</code> &rarr; <a class="path" href="...">worker.go:200</a></p>
-	<pre><code>...six lines at most...</code></pre>
-	<div class="key"><ul><li>...</li><li>...</li></ul></div>
-	<div class="more"><b>Question?</b><ul><li>...</li></ul></div>
+<li id="s3">
+	<div class="io">
+		<div><b>IN</b><span>the 170 byte record over loopback</span></div>
+		<div><b>OUT</b><span>1 appended line in questions.jsonl</span></div>
+	</div>
+	<p><span class="action">Click</span> <a class="path" href="...">serve.py:129</a> <code>do_POST</code></p>
+	<div class="say"><ul><li>...</li><li>...</li></ul></div>
+	<div class="ask"><b>Question?</b><ul><li>...</li></ul></div>
 </li>
 ```
 
-Snippets are for pointing at, not reading. Six lines maximum, elided with `...` where the middle does not matter. If the snippet needs more than six lines to make its point, the stop is really two stops.
+The `io` box comes first, always: what enters, what leaves, with the real run's numbers. A `<pre>` snippet between the click line and the cues is optional, only when a cue names a variable that must be visible; six lines maximum, elided with `...`. If the snippet needs more to make its point, the stop is really two stops.
+
+The page opens with the pipeline block, the whole journey before any stop:
+
+```html
+<div class="pipe">
+	<p class="pt">The pipeline, one real question, today's run</p>
+	<ol>
+		<li>POST /ask, one json record <span class="where">#page</span></li>
+		<li>questions.jsonl gains 1 line <span class="where">#server</span></li>
+	</ol>
+	<code class="rec">{"id":"aba0ecdd...","question":"hey"}</code>
+	<p class="foot">this record is real. it rides every stage below.</p>
+</div>
+```
+
+And decisions render as state pairs, in their own late section, only the 2 or 3 that matter:
+
+```html
+<div class="ba">
+	<div class="b"><b>BEFORE</b> card html rewritten every poll, the mark died in 2s</div>
+	<div class="a"><b>AFTER</b> rendered once, the mark lives as long as the tab</div>
+</div>
+```
+
+All of these classes (`io`, `pipe`, `rec`, `where`, `tag`, `ba`) ship in the template's stylesheet; write the markup, never inline styles.
 
 ## KEYWORD cues
 
@@ -88,6 +143,8 @@ An anticipated question, bolded, with a fragment answer. These are the ones that
 
 Each of them hides the fact. Replace with the fact.
 
+**No em-dashes, anywhere on the page.** Commas, periods, parentheses instead. This is absolute; sweep the generated HTML for the character before serving.
+
 **Concrete nouns only.** "One item per file" is two vague words. "One queue row per uploaded document, a salary certificate, a bank statement" is checkable. If a word means two different things in the same document (a queue row and a database row), disambiguate every occurrence.
 
 **Numbers earn their place or leave.** A measured latency figure is worth saying. A pile of threshold values the presenter would have to recite is noise. Point at the comment in the code that holds them instead.
@@ -120,7 +177,7 @@ Built from the document, not hand-maintained.
 1. Copy `assets/template.html`, replace `{{TITLE}}`, `{{SUBTITLE}}`, `{{NAV}}`, `{{BODY}}`, `{{SKILLS}}`.
    `{{SKILLS}}` is a JSON array powering the `/` dropdown in the page's ask box: `[{"name": "caveman-english", "hint": "blunt clipped rewording"}, ...]`, hint being the first clause of the skill's description, under 60 chars.
    Curate it from the session's live skill list, never a hardcoded set. Include a skill only if it acts on words: takes the selection (or the question) as text and produces a card answer, rewording, condensing, explaining, translating. Everything code-shaped stays out: skills that generate or edit code, review diffs, run tests or the app, build pages, or touch infrastructure, including `walkthrough` itself. The test is the presenter mid-call: if the skill could not finish as 2 to 4 bullets on the card while they keep talking, it does not belong in the menu. Left unreplaced it degrades to no dropdown, nothing breaks.
-2. Write the body: a summary table of what changed, then the acts, then any closing sections.
+2. Write the body: the pipeline block, then the stages, then the decisions, then any closing sections.
 3. Give every `<h2>` an `id`, every stop `<li>` an `id`, then build the nav from those.
 4. Link the paths, then link the bare line numbers, using the editor scheme detected for this machine.
 5. Verify.
@@ -178,6 +235,8 @@ EOF
 ```
 
 The page polls and pins the answer under the stop the selection came from, so answer in the page's own voice: 2 to 4 bullets starting `- `, glanceable, `file:line` in backticks, an editor link as `[formmap.go:50](cursor://file/...)` when pointing somewhere is faster than describing it. No paragraphs; the presenter reads this mid-call. The card renders only that mini-markdown (bullets, backtick code, `cursor://`/`vscode://`/http links), nothing else.
+
+A selection inside an existing card threads: the follow-up arrives with a `parent` id and its card nests directly below the card it questions. Answer it the same way, by id; context is the parent card's answer.
 
 A question starting with `/skill-name` is a skill invocation: invoke that skill and apply it to the selection (or to composing the answer), same as if the user typed it in the terminal. The page's `/` dropdown offers the skills you embedded via `{{SKILLS}}`. If someone hand-types a skill you excluded (code-editing, review, anything that cannot finish as a card), do not run it; say on the card what it does and why it needs the terminal instead.
 

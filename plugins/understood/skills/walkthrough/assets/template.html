@@ -144,7 +144,7 @@
 		font-size: .93rem;
 	}
 	.say::before {
-		content: "SAY";
+		content: "KEYWORD";
 		display: block;
 		font-size: .65rem;
 		letter-spacing: .09em;
@@ -160,7 +160,7 @@
 		color: var(--muted);
 	}
 	.ask::before {
-		content: "HE'LL ASK";
+		content: "KNOW MORE";
 		display: block;
 		font-size: .65rem;
 		letter-spacing: .09em;
@@ -184,6 +184,36 @@
 	th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
 	ul.plain { padding-left: 1.1rem; margin: .4rem 0; }
 	ul.plain li { margin-bottom: .3rem; }
+	/* Data-first components: pipeline block, IN/OUT boundary, stage tag, BEFORE/AFTER pair. */
+	.pipe { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); padding: 1.1rem 1.25rem; margin: 1.25rem 0 0; }
+	.pipe .pt { font-size: .68rem; letter-spacing: .09em; font-weight: 700; color: var(--accent); text-transform: uppercase; margin: 0 0 .6rem; }
+	.pipe ol { list-style: none; margin: 0; padding: 0; }
+	.pipe li { position: relative; padding: .28rem 0 .28rem 1.4rem; font-size: .92rem; }
+	.pipe li::before { content: "\2192"; position: absolute; left: .15rem; color: var(--accent); font-weight: 600; }
+	.pipe li:first-child::before { content: "\25CF"; font-size: .7rem; top: .48rem; }
+	.pipe li .where { float: right; color: var(--muted); font-size: .72rem; font-family: ui-monospace, Menlo, monospace; padding-top: .15rem; }
+	.pipe .foot { margin: .7rem 0 0; color: var(--muted); font-size: .8rem; }
+	.rec { display: block; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: .45rem .6rem; margin: .4rem 0 0; font-size: .78rem; overflow-x: auto; white-space: nowrap; }
+	.tag { float: right; font-family: ui-monospace, Menlo, monospace; font-size: .72rem; color: var(--accent); background: var(--say-bg); border-radius: 999px; padding: .1rem .55rem; margin-left: .5rem; }
+	h2 .tag { float: none; vertical-align: .15rem; }
+	.io { margin: .55rem 0 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+	.io div { display: flex; gap: .6rem; padding: .4rem .6rem; font-size: .87rem; align-items: baseline; }
+	.io div + div { border-top: 1px solid var(--line); }
+	.io b { flex: 0 0 2.2rem; font-size: .66rem; letter-spacing: .08em; color: var(--accent); }
+	.io span { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; overflow-wrap: anywhere; }
+	.ba { margin: .55rem 0 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+	.ba div { display: flex; gap: .6rem; padding: .45rem .6rem; font-size: .88rem; align-items: baseline; }
+	.ba b { flex: 0 0 3.6rem; font-size: .66rem; letter-spacing: .08em; }
+	.ba .b { background: rgba(220, 60, 60, .07); }
+	.ba .b b { color: #c0392b; }
+	.ba .a { background: rgba(40, 160, 90, .08); border-top: 1px solid var(--line); }
+	.ba .a b { color: #1f9d55; }
+	@media (prefers-color-scheme: dark) {
+		.ba .b { background: rgba(220, 60, 60, .12); }
+		.ba .a { background: rgba(40, 160, 90, .12); }
+		.ba .b b { color: #e07b6d; }
+		.ba .a b { color: #5fc98e; }
+	}
 	/* Ask-from-selection: floating chip, question input, pinned Q&A card. */
 	#askchip, #askpop { position: absolute; z-index: 60; }
 	#askchip {
@@ -269,12 +299,14 @@
 		overflow-wrap: anywhere;
 	}
 	.qa-q { font-weight: 600; margin: 0; }
-	.qa-a { margin: .3rem 0 0; }
+	.qa-a { margin: .3rem 0 0; overflow-wrap: anywhere; }
+	.qa-a code { overflow-wrap: anywhere; }
 	.qa-a p { margin: .15rem 0 0; }
 	.qa-a ul { margin: .1rem 0 0; padding-left: 1.05rem; }
 	.qa-a li { margin: .12rem 0; }
 	.qa-status { color: var(--muted); font-size: .78rem; margin: .3rem 0 0; }
 	#qa-rail .qa { margin: 0; font-size: .84rem; box-shadow: var(--shadow); border-radius: 8px; }
+	.qa .qa, #qa-rail .qa .qa { position: static; margin: .55rem 0 0; box-shadow: none; font-size: 1em; }
 	#hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 	#hl-layer .hl { position: absolute; border-radius: 2px; }
 	#hl-layer .hl.asking { background: rgba(84, 143, 255, .30); }
@@ -425,6 +457,12 @@
 		};
 	}
 	function placeCard(card) {
+		const parent = card.dataset.parent && document.getElementById('qa-' + card.dataset.parent);
+		if (parent) {
+			if (card.parentElement !== parent) parent.append(card);
+			card.style.position = card.style.top = card.style.left = card.style.width = '';
+			return;
+		}
 		const rooms = sideRooms();
 		if (rooms.left || rooms.right) {
 			if (card.parentElement !== rail) rail.append(card);
@@ -436,8 +474,9 @@
 		card.style.position = card.style.top = card.style.left = card.style.width = '';
 	}
 	function layoutRail() {
-		const cards = [...document.querySelectorAll('.qa')];
-		cards.forEach(placeCard);
+		const all = [...document.querySelectorAll('.qa')];
+		all.forEach(placeCard);
+		const cards = all.filter(c => !(c.dataset.parent && document.getElementById('qa-' + c.dataset.parent)));
 		const rooms = sideRooms();
 		if (!rooms.left && !rooms.right) return;
 		const anchored = cards.map(card => {
@@ -487,10 +526,16 @@
 		if (!text || text.length < 2 || s.isCollapsed) { chip.style.display = 'none'; return; }
 		let node = s.anchorNode;
 		if (node && node.nodeType !== 1) node = node.parentElement;
-		if (!node || !mainEl.contains(node)) { chip.style.display = 'none'; return; }
-		const stop = node.closest('ol.steps > li[id]');
+		if (!node || node.closest('#askpop, #toc')) { chip.style.display = 'none'; return; }
+		const card = node.closest('.qa');
+		if (!mainEl.contains(node) && !card) { chip.style.display = 'none'; return; }
+		const stop = card ? null : node.closest('ol.steps > li[id]');
 		const r = s.getRangeAt(0).getBoundingClientRect();
-		sel = { text: text.slice(0, 2000), stop: stop ? stop.id : '' };
+		sel = {
+			text: text.slice(0, 2000),
+			stop: card ? (card.dataset.stop || '') : (stop ? stop.id : ''),
+			parent: card ? card.id.slice(3) : '',
+		};
 		chip.style.top = scrollY + r.bottom + 8 + 'px';
 		chip.style.left = scrollX + Math.max(8, Math.min(r.left + r.width / 2 - 24, innerWidth - 90)) + 'px';
 		chip.style.display = 'block';
@@ -521,7 +566,7 @@
 		if (!question || !sel) return;
 		const id = crypto.randomUUID ? crypto.randomUUID()
 			: 'q' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-		const rec = { id, stop: sel.stop, selection: sel.text, question };
+		const rec = { id, stop: sel.stop, selection: sel.text, question, parent: sel.parent || '' };
 		pendingSince[id] = Date.now();
 		upsertCard(rec, undefined);
 		if (savedRange) askedRanges.set(id, savedRange);
@@ -574,6 +619,7 @@
 			status.className = 'qa-status';
 			card.append(selP, qP, aDiv, status);
 			card.dataset.stop = q.stop || '';
+			card.dataset.parent = q.parent || '';
 			placeCard(card);
 		}
 		if (answer !== undefined) {
@@ -599,9 +645,15 @@
 	function findRange(root, needle) {
 		const norm = needle.replace(/\s+/g, ' ').trim();
 		if (!norm) return null;
+		const rootCard = root.closest ? root.closest('.qa') : null;
 		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
 			acceptNode(n) {
-				return n.parentElement.closest('.qa, #askpop, #toc, #hl-layer')
+				const p = n.parentElement;
+				if (rootCard) {
+					if (p.closest('.qa') !== rootCard || p.closest('.qa-sel')) return NodeFilter.FILTER_REJECT;
+					return NodeFilter.FILTER_ACCEPT;
+				}
+				return p.closest('.qa, #askpop, #toc, #hl-layer')
 					? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
 			},
 		});
@@ -629,8 +681,9 @@
 		for (const q of questions) {
 			if (askedRanges.has(q.id) || rangeTried.has(q.id) || !q.selection) continue;
 			rangeTried.add(q.id);
-			const root = (q.stop && document.getElementById(q.stop)) || mainEl;
-			const range = findRange(root, q.selection) || (root !== mainEl && findRange(mainEl, q.selection));
+			const parent = q.parent && document.getElementById('qa-' + q.parent);
+			const root = parent || (q.stop && document.getElementById(q.stop)) || mainEl;
+			const range = findRange(root, q.selection) || (!parent && root !== mainEl && findRange(mainEl, q.selection));
 			if (range) askedRanges.set(q.id, range);
 		}
 	}
@@ -639,7 +692,6 @@
 		try {
 			const r = await fetch('/qa.json', { cache: 'no-store' });
 			const d = await r.json();
-			restoreRanges(d.questions);
 			const answers = {};
 			for (const a of d.answers) answers[a.id] = a.answer;
 			let pending = false;
@@ -647,6 +699,7 @@
 				upsertCard(q, answers[q.id]);
 				if (answers[q.id] === undefined) pending = true;
 			}
+			restoreRanges(d.questions);
 			if (pending) startPolling(); else stopPolling();
 			paintHl();
 			layoutRail();

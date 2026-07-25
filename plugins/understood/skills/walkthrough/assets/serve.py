@@ -146,6 +146,7 @@ def serve(path: Path, port: int) -> None:
                 record = {
                     "id": str(raw["id"])[:64],
                     "stop": str(raw.get("stop", ""))[:64],
+                    "parent": str(raw.get("parent", ""))[:64],
                     "selection": str(raw.get("selection", ""))[:2000],
                     "question": str(raw["question"])[:2000],
                 }
