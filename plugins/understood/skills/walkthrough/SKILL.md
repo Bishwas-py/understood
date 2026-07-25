@@ -19,7 +19,7 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
 - every path and every bare line number is a link that opens the editor at that exact line
 - two cue types per stop, `KEYWORD` and `KNOW MORE`, both bullet fragments
-- ask-from-selection: the reader's questions land as cards floating beside the highlighted text, answered live by the session that built the page
+- ask-from-selection: the reader's questions land as cards floating beside the highlighted text, answered live by the session that built the page; a chat box on the page takes questions not tied to any selection
 - light and dark, prints, no external requests, no build step
 - served on a memorable local hostname so the user gets a URL, not a file path
 
@@ -234,9 +234,23 @@ python3 assets/wait_question.py <q.jsonl> <a.jsonl> --answer <id> <<'EOF'
 EOF
 ```
 
-The page polls and pins the answer under the stop the selection came from, so answer in the page's own voice: 2 to 4 bullets starting `- `, glanceable, `file:line` in backticks, an editor link as `[formmap.go:50](cursor://file/...)` when pointing somewhere is faster than describing it. No paragraphs; the presenter reads this mid-call. The card renders only that mini-markdown (bullets, backtick code, `cursor://`/`vscode://`/http links), nothing else.
+The page polls and pins the answer beside the text it came from. Answer to produce understanding, not coverage; a card of four dense bullets explains without landing. Build a think flow, in this order:
 
-A selection inside an existing card threads: the follow-up arrives with a `parent` id and its card nests directly below the card it questions. Answer it the same way, by id; context is the parent card's answer.
+1. **Lead with the shape, not facts about it.** If the answer is a process, the first line is `flow: a -> b -> c` and everything else only annotates what the chain cannot carry. If it is a definition, the first line IS the definition, compressed: "upsert: try INSERT, row exists, UPDATE it instead".
+2. **One concrete instance before any generality.** The real field, the real row, the real value from this run, in the first or second line. "leftover = net salary, AHV number, ~40 today" lands; "whatever survives the settling stages" alone does not.
+3. **Answer the question asked, then stop.** 2 lines that land beat 4 that cover. The reply box exists; depth is theirs to pull.
+4. **In and out before how.** Mechanism only if they asked how.
+5. **Hard terms are fine, prose is not.** Keep the term, drop the sentence around it. `file:line` in backticks; an editor link `[repo.go:427](cursor://file/...)` whenever pointing beats describing.
+6. **Changed things come as a pair.** before: x. after: y.
+
+A selection inside an existing card threads: the follow-up arrives with a `parent` id and nests below the card it questions, showing the quoted fragment it carries in `selection`. Answer it the same way, by id; context is the parent card's answer. A question with no selection, no stop, and no parent comes from the page's chat box; treat it as a question about the whole change.
+
+Answers are mini-markdown: `- ` bullets, backtick code, `[label](cursor://...)` links. Two richer forms, used only when the shape earns them:
+
+- a line starting `flow:` (or a ```flow fence) renders as an arrow chain of pills: `flow: form JSON -> settle -> leftover list`. Use it whenever the answer is a process.
+- an ```svg fence renders inline as a diagram. Hand-write it small (a few boxes and arrows, viewBox, currentColor strokes), no scripts, no event handlers, no external references; it is sanitized and falls back to plain code if it fails the check. A diagram is for structure that words genuinely cannot carry, one per answer at most.
+
+Any other fence renders as a code block.
 
 A question starting with `/skill-name` is a skill invocation: invoke that skill and apply it to the selection (or to composing the answer), same as if the user typed it in the terminal. The page's `/` dropdown offers the skills you embedded via `{{SKILLS}}`. If someone hand-types a skill you excluded (code-editing, review, anything that cannot finish as a card), do not run it; say on the card what it does and why it needs the terminal instead.
 

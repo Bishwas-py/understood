@@ -72,7 +72,7 @@
 		main { padding-left: 0; width: min(780px, 100%); margin-left: max(276px, calc(50vw - 390px)); margin-right: auto; }
 	}
 	:target { scroll-margin-top: 1.75rem; }
-	@media (max-width: 1240px) {
+	@media (max-width: 1080px) {
 		#toc { display: none; }
 		main { margin: 0 auto; padding-left: 0; width: min(780px, 100%); }
 	}
@@ -295,6 +295,62 @@
 		padding: .1rem 0;
 	}
 	.qa-replybox input::placeholder { color: var(--muted); }
+	.qa-quote {
+		display: flex;
+		gap: .4rem;
+		align-items: center;
+		border-left: 2px solid var(--accent);
+		background: var(--say-bg);
+		border-radius: 4px;
+		padding: .2rem .45rem;
+		margin-bottom: .35rem;
+		font-size: .78em;
+		color: var(--muted);
+	}
+	.qa-quote span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.qa-quote button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 1em; padding: 0 .1rem; }
+	.qa.reply .qa-sel { font-size: .8em; margin: 0 0 .2rem; }
+	.qa-flow { display: flex; flex-wrap: wrap; gap: .3rem .4rem; align-items: center; margin: .3rem 0 0; }
+	.qa-flow .step {
+		background: var(--code-bg);
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		padding: .1rem .45rem;
+		font-size: .82em;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	}
+	.qa-flow .arw { color: var(--accent); font-weight: 600; }
+	.qa-svg { margin: .35rem 0 0; }
+	.qa-svg svg { max-width: 100%; height: auto; display: block; }
+	.hl.asked { transition: background .15s; }
+	.hl.asked.lit { background: rgba(255, 200, 40, .55); }
+	@media (prefers-color-scheme: dark) { .hl.asked.lit { background: rgba(255, 213, 79, .4); } }
+	#chatbox {
+		position: fixed;
+		right: 1.25rem;
+		bottom: 1.25rem;
+		width: min(340px, calc(100vw - 2.5rem));
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		box-shadow: var(--shadow);
+		padding: .5rem .6rem;
+		z-index: 55;
+	}
+	#chatbox > input {
+		width: 100%;
+		border: 0;
+		outline: none;
+		background: transparent;
+		color: var(--fg);
+		font: inherit;
+		font-size: .88rem;
+		padding: .1rem .1rem;
+	}
+	#chatbox > input::placeholder { color: var(--muted); }
+	#chatlog { display: flex; flex-direction: column; gap: .5rem; max-height: 45vh; overflow-y: auto; margin-bottom: .45rem; }
+	#chatlog:empty { display: none; margin: 0; }
+	#chatlog .qa { margin: 0; font-size: .84rem; }
 	/* Corner hook pointing at the corner that faces the asked text. */
 	.qa::after { content: ""; position: absolute; width: 18px; height: 18px; display: none; pointer-events: none; }
 	.qa.dir-tr::after { display: block; top: -2px; right: -2px; border-top: 3px solid var(--accent); border-right: 3px solid var(--accent); border-top-right-radius: 10px; }
@@ -440,7 +496,21 @@
 	hlLayer.id = 'hl-layer';
 	const rail = document.createElement('div');
 	rail.id = 'qa-rail';
-	document.body.append(hlLayer, rail);
+	const chatbox = document.createElement('div');
+	chatbox.id = 'chatbox';
+	const chatlog = document.createElement('div');
+	chatlog.id = 'chatlog';
+	const chatInput = document.createElement('input');
+	chatInput.placeholder = 'ask anything about this page…';
+	chatbox.append(chatlog, chatInput);
+	document.body.append(hlLayer, rail, chatbox);
+	chatInput.addEventListener('keydown', e => {
+		if (e.key !== 'Enter') return;
+		const question = chatInput.value.trim();
+		if (!question) return;
+		chatInput.value = '';
+		submitQuestion({ id: newId(), stop: '', selection: '', question, parent: '' });
+	});
 	let savedRange = null;
 	let askingRange = null;
 	const askedRanges = new Map();
@@ -518,6 +588,13 @@
 		if (dir) card.classList.add('dir-' + dir);
 	}
 	function placeCard(card) {
+		if (!card.dataset.parent && !card.dataset.stop && card.dataset.sel !== '1') {
+			if (card.parentElement !== chatlog) chatlog.append(card);
+			card.style.position = card.style.top = card.style.left = card.style.width = '';
+			setDir(card, null);
+			chatlog.scrollTop = chatlog.scrollHeight;
+			return;
+		}
 		const parent = card.dataset.parent && document.getElementById('qa-' + card.dataset.parent);
 		if (parent) {
 			const box = parent.querySelector(':scope > .qa-replybox');
@@ -542,7 +619,8 @@
 	function layoutRail() {
 		const all = [...document.querySelectorAll('.qa')];
 		all.forEach(placeCard);
-		const cards = all.filter(c => !(c.dataset.parent && document.getElementById('qa-' + c.dataset.parent)));
+		const cards = all.filter(c =>
+			!(c.dataset.parent && document.getElementById('qa-' + c.dataset.parent)) && !chatlog.contains(c));
 		const rooms = sideRooms();
 		if (!rooms.left && !rooms.right) return;
 		const anchored = cards.map(card => {
@@ -594,8 +672,13 @@
 		if (!text || text.length < 2 || s.isCollapsed) { chip.style.display = 'none'; return; }
 		let node = s.anchorNode;
 		if (node && node.nodeType !== 1) node = node.parentElement;
-		if (!node || node.closest('#askpop, #toc')) { chip.style.display = 'none'; return; }
-		const card = node.closest('.qa');
+		if (!node || node.closest('#askpop, #toc, #chatbox, .qa-replybox')) { chip.style.display = 'none'; return; }
+		let card = node.closest('.qa');
+		while (card && card.dataset.parent) {
+			const up = document.getElementById('qa-' + card.dataset.parent);
+			if (!up) break;
+			card = up;
+		}
 		if (!mainEl.contains(node) && !card) { chip.style.display = 'none'; return; }
 		const stop = card ? null : node.closest('ol.steps > li[id]');
 		const r = s.getRangeAt(0).getBoundingClientRect();
@@ -609,9 +692,38 @@
 		chip.style.display = 'block';
 	}
 
+	function startQuoteReply(card, text, range) {
+		const box = card.querySelector(':scope > .qa-replybox');
+		if (!box) return;
+		card._quote = { text, range };
+		let q = box.querySelector('.qa-quote');
+		if (!q) {
+			q = document.createElement('div');
+			q.className = 'qa-quote';
+			const label = document.createElement('span');
+			const x = document.createElement('button');
+			x.type = 'button';
+			x.textContent = '×';
+			x.addEventListener('click', () => { card._quote = null; q.remove(); askingRange = null; paintHl(); });
+			q.append(label, x);
+			box.prepend(q);
+		}
+		q.querySelector('span').textContent = text.length > 90 ? text.slice(0, 90) + '…' : text;
+		if (range) { askingRange = range; paintHl(); }
+		getSelection().removeAllRanges();
+		box.querySelector('input').focus();
+	}
+
 	chip.addEventListener('click', () => {
 		const s = getSelection();
 		savedRange = s && s.rangeCount ? s.getRangeAt(0).cloneRange() : null;
+		if (sel && sel.parent) {
+			chip.style.display = 'none';
+			const card = document.getElementById('qa-' + sel.parent);
+			if (card) startQuoteReply(card, sel.text, savedRange);
+			savedRange = null;
+			return;
+		}
 		askingRange = savedRange;
 		paintHl();
 		pop.style.top = chip.style.top;
@@ -659,11 +771,21 @@
 			.replace(/\[([^\]]+)\]\(((?:cursor|vscode|https?):[^)\s]+)\)/g, '<a href="$2">$1</a>')
 			.replace(/`([^`]+)`/g, '<code>$1</code>');
 	}
-	function renderAnswer(text) {
+	function renderFlow(text) {
+		const steps = text.split('->').map(s => s.trim()).filter(Boolean);
+		return '<div class="qa-flow">' + steps.map((s, i) =>
+			(i ? '<span class="arw">→</span>' : '') + '<span class="step">' + inline(esc(s)) + '</span>').join('') + '</div>';
+	}
+	function safeSvg(src) {
+		return src.trim().startsWith('<svg')
+			&& !/<script|on\w+\s*=|foreignObject|javascript:|<iframe|href\s*=\s*["']?\s*https?:/i.test(src);
+	}
+	function renderPlain(text) {
 		const out = [];
 		let bullets = null;
 		for (const line of text.split('\n')) {
 			const t = line.trim();
+			if (t.startsWith('flow:')) { bullets = null; out.push(renderFlow(t.slice(5))); continue; }
 			if (t.startsWith('- ')) {
 				if (!bullets) { bullets = []; out.push(bullets); }
 				bullets.push('<li>' + inline(esc(t.slice(2))) + '</li>');
@@ -674,6 +796,20 @@
 		}
 		return out.map(x => Array.isArray(x) ? '<ul>' + x.join('') + '</ul>' : x).join('');
 	}
+	function renderAnswer(text) {
+		const parts = text.split(/```(\w*)\n?([\s\S]*?)```/);
+		let html = '';
+		for (let i = 0; i < parts.length; i += 3) {
+			html += renderPlain(parts[i]);
+			const lang = (parts[i + 1] || '').toLowerCase();
+			const code = parts[i + 2];
+			if (code === undefined) break;
+			if (lang === 'flow') html += renderFlow(code);
+			else if (lang === 'svg' && safeSvg(code)) html += '<div class="qa-svg">' + code + '</div>';
+			else html += '<pre><code>' + esc(code) + '</code></pre>';
+		}
+		return html;
+	}
 
 	function upsertCard(q, answer) {
 		let card = document.getElementById('qa-' + q.id);
@@ -681,7 +817,12 @@
 			card = document.createElement('div');
 			card.className = q.parent ? 'qa reply' : 'qa';
 			card.id = 'qa-' + q.id;
-			if (!q.parent) {
+			card.dataset.sel = q.selection ? '1' : '';
+			card.addEventListener('mouseenter', () =>
+				hlLayer.querySelectorAll('.hl[data-qid="' + q.id + '"]').forEach(d => d.classList.add('lit')));
+			card.addEventListener('mouseleave', () =>
+				hlLayer.querySelectorAll('.hl.lit').forEach(d => d.classList.remove('lit')));
+			if (q.selection) {
 				const selP = document.createElement('p');
 				selP.className = 'qa-sel';
 				selP.textContent = q.selection.length > 220 ? q.selection.slice(0, 220) + '…' : q.selection;
@@ -709,7 +850,15 @@
 					const question = inp.value.trim();
 					if (!question) return;
 					inp.value = '';
-					submitQuestion({ id: newId(), stop: card.dataset.stop || '', selection: '', question, parent: q.id });
+					const quote = card._quote;
+					card._quote = null;
+					const chipQ = box.querySelector('.qa-quote');
+					if (chipQ) chipQ.remove();
+					const id = newId();
+					if (quote && quote.range) askedRanges.set(id, quote.range);
+					askingRange = null;
+					submitQuestion({ id, stop: card.dataset.stop || '', selection: quote ? quote.text : '', question, parent: q.id });
+					paintHl();
 				});
 			}
 			placeCard(card);
