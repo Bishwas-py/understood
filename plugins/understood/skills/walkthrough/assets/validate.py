@@ -153,6 +153,21 @@ def validate(spec: dict) -> Report:
                 for pi2, proof in enumerate(think.get("proofs") or []):
                     check_text(rep, repo, f"{twhere}.proofs[{pi2}]", proof)
 
+    seen_look: set[str] = set()
+    for i, rule in enumerate(spec.get("look") or []):
+        where = f"look[{i}]"
+        for key in ("id", "sel", "css"):
+            if not isinstance(rule.get(key), str) or not rule[key].strip():
+                rep.error(where, f"look rule needs a {key}")
+        if rule.get("id") in seen_look:
+            rep.error(where, f"duplicate look id {rule['id']!r}")
+        seen_look.add(rule.get("id"))
+        # css never needs a <, and one would end the style tag early
+        if "<" in rule.get("sel", "") or "<" in rule.get("css", ""):
+            rep.error(where, "look rule holds a <, which cannot survive a style tag")
+        if "}" in rule.get("css", ""):
+            rep.error(where, "look rule css closes its own block, write declarations only")
+
     for where, container, key in walk_refs(spec):
         check_ref(rep, repo, where, container[key])
 

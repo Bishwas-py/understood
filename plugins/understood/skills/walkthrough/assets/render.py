@@ -431,7 +431,8 @@ def render(spec: dict) -> str:
     if spec.get("repo", {}).get("sha"):
         sub = f'{sub} <span class="build">build {spec.get("build", 1)} &middot; {spec["repo"]["sha"]}</span>'
     html = (
-        tpl.replace("{{TITLE}}", esc(spec.get("title", "walkthrough")))
+        tpl.replace("{{LOOK}}", look_html(spec))
+        .replace("{{TITLE}}", esc(spec.get("title", "walkthrough")))
         .replace("{{SUBTITLE}}", sub)
         .replace("{{NAV}}", nav_html(spec))
         .replace("{{BODY}}", body_html(spec))
@@ -440,6 +441,19 @@ def render(spec: dict) -> str:
     if EM_DASH in html:
         raise SystemExit("em-dash reached the page, fix the spec")
     return html
+
+
+def look_html(spec: dict) -> str:
+    """The spec's own look rules, last in the cascade so they win.
+
+    A page change is a spec change, so a request to restyle one page lands here
+    rather than in the template, which every other walkthrough is stamped from.
+    """
+    rules = spec.get("look") or []
+    if not rules:
+        return ""
+    body = "\n".join(f'{r["sel"]} {{ {r["css"]} }}' for r in rules)
+    return f'<style id="look">\n{body}\n</style>'
 
 
 def main() -> int:

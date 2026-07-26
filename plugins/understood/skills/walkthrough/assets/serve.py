@@ -38,9 +38,18 @@ def slugify(name: str) -> str:
     return slug or "walkthrough"
 
 
+def taken(port: int) -> bool:
+    with socket.socket() as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
 def free_port(preferred: int | None) -> int:
     """Prefer a stable port so the browser's per-origin approval survives restarts."""
     if preferred:
+        # SO_REUSEADDR would let us bind a port someone else is already answering
+        # on, and then quietly serve nothing. Say so instead.
+        if taken(preferred):
+            raise SystemExit(f"port {preferred} is already serving something, stop it or pick another")
         return preferred
     for port in range(BASE_PORT, BASE_PORT + 20):
         with socket.socket() as s:
@@ -68,7 +77,14 @@ def open_in_browser(url: str) -> None:
     webbrowser.open(url)
 
 
+def in_store(path: Path) -> bool:
+    """A page inside a walkthrough folder shares that folder's conversation."""
+    return (path.parent / "spec.json").is_file()
+
+
 def qa_paths(path: Path) -> tuple[Path, Path]:
+    if in_store(path):
+        return path.parent / "questions.jsonl", path.parent / "answers.jsonl"
     return (
         path.with_name(path.stem + ".questions.jsonl"),
         path.with_name(path.stem + ".answers.jsonl"),
@@ -184,13 +200,23 @@ def main() -> int:
     ap.add_argument("--open", action="store_true", help="open the URL after starting")
     args = ap.parse_args()
 
-    path = args.file.expanduser().resolve()
+    path = args.file.expanduser()
     if not path.is_file():
-        print(f"no such file: {path}", file=sys.stderr)
-        return 1
+        import store
+
+        home = store.Home(str(args.file))
+        if home.page.is_file():
+            path = home.page
+        elif home.exists():
+            print(f"{home.slug} is not built yet, run store.py build {home.slug}", file=sys.stderr)
+            return 1
+        else:
+            print(f"no such file or walkthrough: {args.file}", file=sys.stderr)
+            return 1
+    path = path.resolve()
 
     port = free_port(args.port)
-    slug = slugify(path.stem)
+    slug = slugify(path.parent.name if in_store(path) else path.stem)
     url = f"http://{HOST}:{port}/{slug}/"
 
     threading.Thread(target=serve, args=(path, port), daemon=True).start()

@@ -539,6 +539,7 @@
 	#hl-layer .hl.asked { background: var(--hl-asked); transition: background .15s; }
 	#hl-layer .hl.asked.lit { background: var(--hl-lit); }
 </style>
+{{LOOK}}
 </head>
 <body>
 {{NAV}}
@@ -1156,22 +1157,7 @@
 		}
 		return out.map(x => Array.isArray(x) ? '<ul>' + x.join('') + '</ul>' : x).join('');
 	}
-	// morph fences: the trusted session restyles or reshapes the page on request.
-	// Applied once per fence, re-applied on reload because they live in answers.jsonl.
-	const appliedMorphs = new Set();
-	function applyMorph(kind, code, key) {
-		if (appliedMorphs.has(key)) return;
-		appliedMorphs.add(key);
-		if (kind === 'morph-css') {
-			const st = document.createElement('style');
-			st.dataset.morph = key;
-			st.textContent = code;
-			document.head.append(st);
-		} else {
-			try { new Function(code)(); } catch (e) {}
-		}
-	}
-	function renderAnswer(text, qid) {
+	function renderAnswer(text) {
 		const parts = text.split(/```([\w-]*)\n?([\s\S]*?)```/);
 		let html = '';
 		for (let i = 0; i < parts.length; i += 3) {
@@ -1181,10 +1167,6 @@
 			if (code === undefined) break;
 			if (lang === 'flow') html += renderFlow(code);
 			else if (lang === 'svg' && safeSvg(code)) html += '<div class="qa-svg">' + code + '</div>';
-			else if (lang === 'morph-css' || lang === 'morph-js') {
-				applyMorph(lang, code, (qid || '') + ':' + i);
-				html += '<p class="qa-note">page ' + (lang === 'morph-css' ? 'restyled' : 'modified') + '</p>';
-			}
 			else {
 				const pretty = lang === 'json' ? prettyJson(code) : null;
 				html += pretty ? jsonBlock(pretty) : '<pre><code>' + esc(code) + '</code></pre>';
@@ -1253,7 +1235,7 @@
 			if (card.dataset.answered !== '1') {
 				changed = true;
 				card.dataset.answered = '1';
-				card.querySelector('.qa-a').innerHTML = renderAnswer(answer, q.id);
+				card.querySelector('.qa-a').innerHTML = renderAnswer(answer);
 				card.querySelector('.qa-status').textContent = '';
 			}
 		} else {
