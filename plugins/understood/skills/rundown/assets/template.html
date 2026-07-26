@@ -1342,7 +1342,8 @@
 			const d = await r.json();
 			const answers = {}, rebinds = {};
 			for (const a of d.answers) {
-				answers[a.id] = a.answer;
+				// a later record may carry only a rebind, and must not blank the answer
+				if (a.answer !== undefined) answers[a.id] = a.answer;
 				if (a.rebind && a.rebind.to) rebinds[a.id] = a.rebind;
 			}
 			let pending = false;

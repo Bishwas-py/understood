@@ -363,7 +363,7 @@ python3 assets/wait_question.py <q.jsonl> <a.jsonl> --answer <id> --rebind "did 
 EOF
 ```
 
-The card then carries both, the words that were quoted struck through and the words they became under them, so the reader can see the thread survived rather than guess. The build says which quotes went missing, and that list is what you owe a rebind:
+The card then carries both, the words that were quoted struck through and the words they became under them, so the reader can see the thread survived rather than guess. A rebind can also travel alone, with no text on stdin, which is how a mark lost in an earlier session is relinked without disturbing the answer already on its card. The build says which quotes went missing, and that list is what you owe a rebind:
 
 ```
 orphaned: 888c4b73 quoted "gate closed this block", answer with --rebind to move its mark

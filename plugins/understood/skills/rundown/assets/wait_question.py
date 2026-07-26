@@ -56,11 +56,15 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.answer:
-        text = sys.stdin.read().strip()
-        if not text:
+        text = "" if (args.rebind and sys.stdin.isatty()) else sys.stdin.read().strip()
+        if not text and not args.rebind:
             print("empty answer, nothing appended", file=sys.stderr)
             return 1
-        record = {"id": args.answer, "answer": text}
+        # A rebind on its own is how an old mark is relinked: the answer already
+        # on the card stays exactly as it was written.
+        record = {"id": args.answer}
+        if text:
+            record["answer"] = text
         if args.rebind:
             record["rebind"] = {"to": args.rebind}
         append_jsonl(args.answers, record)
