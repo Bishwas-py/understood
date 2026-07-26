@@ -13,15 +13,11 @@ never separates a page from its thread. The store sits in the repo the
 rundown is about, and is added to .git/info/exclude rather than .gitignore,
 since .gitignore is a tracked file in someone else's project.
 
-    ./store.py list
-    ./store.py build ask-loop
-    ./store.py save  ask-loop /tmp/edited.json
-    ./store.py rm    ask-loop --force
+The command surface lives in cli.py; this is the library it stands on.
 """
 
 from __future__ import annotations
 
-import argparse
 import shutil
 import subprocess
 import sys
@@ -68,9 +64,10 @@ def store_dir(start: Path | None = None) -> Path:
 class Home:
     """Every path a rundown owns, derived from its slug and nothing else."""
 
-    def __init__(self, slug: str, start: Path | None = None):
+    def __init__(self, slug: str, start: Path | None = None, root: Path | None = None):
         self.slug = slug
-        self.dir = store_dir(start) / slug
+        self.root = root or store_dir(start)
+        self.dir = self.root / slug
         self.spec = self.dir / "spec.json"
         self.page = self.dir / "page.html"
         self.questions = self.dir / "questions.jsonl"
@@ -130,88 +127,13 @@ def build(home: Home, fix: bool = False) -> int:
     return 0
 
 
-def each(start: Path | None = None):
-    root = store_dir(start)
+def each(start: Path | None = None, root: Path | None = None):
+    root = root or store_dir(start)
     for child in sorted(root.glob("*/spec.json")):
-        yield Home(child.parent.name, start)
+        yield Home(child.parent.name, root=root)
 
 
 def count_lines(path: Path) -> int:
     if not path.is_file():
         return 0
     return sum(1 for l in path.read_text(encoding="utf-8").splitlines() if l.strip())
-
-
-def cmd_list(args) -> int:
-    homes = list(each())
-    if not homes:
-        print(f"no rundowns in {store_dir()}")
-        return 0
-    for home in homes:
-        spec = load(home.spec)
-        asked = count_lines(home.questions)
-        answered = count_lines(home.answers)
-        built = "built" if home.page.is_file() else "not built"
-        print(f"{home.slug:<28} {spec.get('title', '')[:40]:<42} {asked} asked, {answered} answered, {built}")
-    return 0
-
-
-def cmd_build(args) -> int:
-    return build(Home(args.slug), fix=args.fix)
-
-
-def cmd_save(args) -> int:
-    home = Home(args.slug)
-    spec = load(Path(args.file))
-    shot = save_spec(home, spec)
-    print(f"saved {home.spec}" + (f", previous kept at {shot.name}" if shot else ""))
-    return build(home, fix=args.fix)
-
-
-def cmd_path(args) -> int:
-    print(Home(args.slug).dir)
-    return 0
-
-
-def cmd_rm(args) -> int:
-    home = Home(args.slug)
-    if not home.dir.is_dir():
-        print(f"no rundown named {args.slug}", file=sys.stderr)
-        return 1
-    asked, answered = count_lines(home.questions), count_lines(home.answers)
-    shots = len(list(home.history.glob("*.json"))) if home.history.is_dir() else 0
-    print(f"{home.dir}: {asked} questions, {answered} answers, {shots} snapshots")
-    if not args.force:
-        print("nothing removed, pass --force to delete it")
-        return 1
-    shutil.rmtree(home.dir)
-    print(f"removed {home.dir}")
-    return 0
-
-
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    subs = ap.add_subparsers(dest="cmd", required=True)
-    subs.add_parser("list", help="every rundown in this repo").set_defaults(fn=cmd_list)
-    p = subs.add_parser("build", help="validate and render into the folder")
-    p.add_argument("slug")
-    p.add_argument("--fix", action="store_true", help="code moved: put every ref back on the line its pattern finds")
-    p.set_defaults(fn=cmd_build)
-    p = subs.add_parser("path", help="print the folder for a slug")
-    p.add_argument("slug")
-    p.set_defaults(fn=cmd_path)
-    p = subs.add_parser("save", help="snapshot the current spec, write a new one, rebuild")
-    p.add_argument("slug")
-    p.add_argument("file")
-    p.add_argument("--fix", action="store_true")
-    p.set_defaults(fn=cmd_save)
-    p = subs.add_parser("rm", help="delete a rundown and its conversation")
-    p.add_argument("slug")
-    p.add_argument("--force", action="store_true")
-    p.set_defaults(fn=cmd_rm)
-    args = ap.parse_args()
-    return args.fn(args)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

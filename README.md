@@ -20,6 +20,8 @@ Future patterns get their own subdirectory under `plugins/understood/skills/`, f
 understood/
   .claude-plugin/
     marketplace.json          local marketplace manifest
+  install.sh                  the command and the plugin, in one step
+  uninstall.sh                undo it, rundowns untouched
   plugins/
     understood/
       .claude-plugin/
@@ -35,34 +37,53 @@ understood/
         rundown/assets/template.html      the page shell and its runtime
         rundown/assets/blocks.html        reference implementations of every block
         rundown/assets/example.json       a complete working spec
-        rundown/assets/store.py           one folder per rundown, history, build
-        rundown/assets/serve.py           stable local origin, live reload, /ask
+        rundown/assets/cli.py             the rundown command
+        rundown/assets/store.py           one folder per rundown, history, snapshots
+        rundown/assets/serve.py           one origin for every rundown, index, /ask
         rundown/assets/wait_question.py   the wake loop
         rundown/assets/editor.py          cursor or vscode probe
 ```
 
 ## Install
 
+One command. It puts `rundown` on your PATH and installs the Claude Code plugin, and re-running it upgrades both:
+
 ```bash
-claude plugin marketplace add Bishwas-py/understood
-claude plugin install understood@understood
+curl -fsSL https://raw.githubusercontent.com/Bishwas-py/understood/main/install.sh | bash
 ```
 
-Restart Claude Code afterward — skills don't hot-reload mid-session.
+There is one clone on disk and both halves read it, so the command and the plugin can never drift out of version with each other. No package manager: the code is pure python with no dependencies, so a clone and a small shim is the whole install. `RUNDOWN_HOME` and `RUNDOWN_BIN` override where those land.
 
-### Local development install
+Restart Claude Code afterward, skills don't hot-reload.
 
-If you're working on a local clone instead of the published repo:
+### The command
 
 ```bash
-cd /path/to/understood
-claude plugin marketplace add "$(pwd)"
+rundown list                  every rundown in this repo
+rundown serve                 all of them on one origin, index at /
+rundown serve <slug> --open   the same server, opened at that one
+rundown build <slug> --fix    validate, resync drifted refs, render
+rundown verify <slug>         validate only, write nothing
+rundown rm <slug> --force     delete one and its conversation
+rundown upgrade               pull the latest source, update the plugin
+rundown doctor                versions, store location, what is missing
+```
+
+Reading an old rundown never needs a session: `cd` into the repo and `rundown serve`.
+
+### Plugin only
+
+If you only want the skill inside Claude Code and no command on your PATH:
+
+```bash
+claude plugin marketplace add Bishwas-py/understood
 claude plugin install understood@understood
 ```
 
 ## Uninstall
 
 ```bash
-claude plugin uninstall understood@understood
-claude plugin marketplace remove understood
+curl -fsSL https://raw.githubusercontent.com/Bishwas-py/understood/main/uninstall.sh | bash
 ```
+
+Pass `--all` to delete the clone too. Your rundowns are never touched: they live in `.rundown/` inside each repo they are about.

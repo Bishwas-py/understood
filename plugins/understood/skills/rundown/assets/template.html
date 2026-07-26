@@ -1064,7 +1064,7 @@
 	function submitQuestion(rec) {
 		upsertCard(rec);
 		repaintAll();
-		fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
+		fetch('ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
 			.then(r => { if (!r.ok) throw 0; startPolling(); })
 			.catch(() => setStatus(rec.id, 'failed to send, is serve.py still running?'));
 	}
@@ -1312,7 +1312,7 @@
 
 	async function syncQA() {
 		try {
-			const r = await fetch('/qa.json', { cache: 'no-store' });
+			const r = await fetch('qa.json', { cache: 'no-store' });
 			const d = await r.json();
 			const answers = {};
 			for (const a of d.answers) answers[a.id] = a.answer;

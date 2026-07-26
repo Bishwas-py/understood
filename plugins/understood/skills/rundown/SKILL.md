@@ -250,12 +250,21 @@ One folder per rundown, inside the repo it is about. The folder name is the iden
 
 `store.py` adds `.rundown/` to `.git/info/exclude` on first use, never to the project's `.gitignore`, which is a tracked file in someone else's repo. History is the undo: to reverse an edit, copy a snapshot back over `spec.json` and rebuild.
 
+One command drives all of it. Inside the plugin it is `python3 assets/cli.py`; on the user's PATH it is `rundown`, and they are the same file:
+
 ```bash
-python3 assets/store.py list                     # every rundown in this repo, with its question count
-python3 assets/store.py save  <slug> spec.json   # snapshot the old spec, write the new one, rebuild
-python3 assets/store.py build <slug>             # validate, then render into the folder
-python3 assets/store.py build <slug> --fix       # code moved: put every ref back on the line its pattern finds
-python3 assets/store.py rm    <slug> --force     # deletes the conversation too, so it prints the counts first
+python3 assets/cli.py list                     # every rundown in this repo, with its question count
+python3 assets/cli.py save  <slug> spec.json   # snapshot the old spec, write the new one, rebuild
+python3 assets/cli.py build <slug> --fix       # code moved: put every ref back on the line its pattern finds
+python3 assets/cli.py verify <slug>            # validate only, write nothing
+python3 assets/cli.py serve <slug> --open      # every rundown on one origin, opened at this one
+python3 assets/cli.py rm    <slug> --force     # deletes the conversation too, so it prints the counts first
+```
+
+The user can also install it as a real command, which is worth telling them once, since it means listing and serving old rundowns never needs a session:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bishwas-py/understood/main/install.sh | bash
 ```
 
 ## Build order
@@ -265,7 +274,7 @@ python3 assets/store.py rm    <slug> --force     # deletes the conversation too,
 A failing validate is a build error, not a warning: it means a line number in the page is a lie.
 
 1. Write the spec. Start from `assets/example.json`, keep the ids stable, and let every ref carry a pattern.
-2. `store.py save <slug> <spec>`, which snapshots, writes, validates, and builds in one step. Add `--fix` when the only complaint is drift.
+2. `cli.py save <slug> <spec>`, which snapshots, writes, validates, and builds in one step. Add `--fix` when the only complaint is drift.
 3. Serve, then start the waiter.
 4. Read the built page at the width the reader will use, and click through every block.
 
@@ -290,18 +299,20 @@ Run all of these. Report the counts, do not claim it works.
 Hand back a URL, not a file path. A `file://` path cannot be pasted into a call, does not survive a screen share, and the editor links behave better from an http origin.
 
 ```bash
-python3 assets/serve.py <slug> --open        # a path still works, a slug reads better
+python3 assets/cli.py serve <slug> --open
 ```
 
 It prints one line, the URL, and holds the port until interrupted:
 
 ```
-http://rundown.localhost:8477/my-change-rundown/
+http://rundown.localhost:8477/my-change/
 ```
+
+One process serves every rundown in the repo: `/` is an index of them, `/<slug>/` is one page, and `/<slug>/qa.json` and `/<slug>/ask` are that page's conversation. So a second rundown does not mean a second port, and the browser's editor-link approval is never asked for twice.
 
 Browsers resolve `*.localhost` to loopback on their own, no DNS and no `/etc/hosts` edit, and treat it as a secure context. That last part is the point: editor links (`cursor://`, `vscode://`) trigger the browser's "open this application?" dialog, and only a secure context gets the **Always allow** checkbox. The origin (host and port together) is what the browser remembers the approval for, which is why the host and default port never change and the slug lives in the path. Approve once, never prompted again.
 
-**Why the bundled server and not `python3 -m http.server`.** That serves the whole directory, and the rundown folder holds the spec and the conversation next to the page. `serve.py` binds loopback only and answers every path with the one file it was given, so a stray request cannot list or fetch anything else.
+**Why the bundled server and not `python3 -m http.server`.** That serves the whole directory, and a rundown folder holds the spec and the conversation next to the page. This one binds loopback only and answers nothing but the pages and conversations it knows about, so a stray request cannot list or fetch anything else.
 
 Run it in the background, read the URL from its output, hand that to the user. Say the port dies when the process does.
 
