@@ -63,7 +63,7 @@
           "ref": {
             "path": "assets/template.html",
             "symbol": "readSelection",
-            "line": 822,
+            "line": 903,
             "pattern": "function readSelection"
           },
           "block": {
@@ -245,7 +245,7 @@
           "ref": {
             "path": "assets/template.html",
             "symbol": "cardKind",
-            "line": 735,
+            "line": 773,
             "pattern": "function cardKind"
           },
           "block": {

@@ -162,14 +162,47 @@ def validate(spec: dict) -> Report:
     return rep
 
 
+def resync(spec: dict) -> list[str]:
+    """Move every ref that carries a pattern back onto the line the pattern finds.
+    Code moves; a walkthrough should follow it rather than lie about it."""
+    from spec import expand_root, find_file
+
+    root = expand_root(spec["repo"]["root"])
+    moved = []
+    for stage in spec.get("stages") or []:
+        for stop in stage.get("stops") or []:
+            ref = stop.get("ref")
+            if not isinstance(ref, dict) or not ref.get("pattern"):
+                continue
+            hit = find_file(root, ref["path"])
+            if not hit:
+                continue
+            rx = re.compile(ref["pattern"])
+            lines = hit.read_text(encoding="utf-8", errors="replace").splitlines()
+            found = next((i + 1 for i, l in enumerate(lines) if rx.search(l)), None)
+            if found and found != ref.get("line"):
+                moved.append(f"{stop['id']}: {ref['path']} {ref.get('line')} -> {found}")
+                ref["line"] = found
+    return moved
+
+
 def main() -> int:
-    if len(sys.argv) < 2:
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    fix = "--fix" in sys.argv
+    if not args:
         print(__doc__)
         return 2
-    from spec import load
+    from spec import load, save
 
-    path = Path(sys.argv[1])
-    rep = validate(load(path))
+    path = Path(args[0])
+    spec = load(path)
+    if fix:
+        moved = resync(spec)
+        for line in moved:
+            print(f"  moved {line}")
+        if moved:
+            save(path, spec)
+    rep = validate(spec)
     print(f"validating {path.name}")
     rep.print()
     return 1 if rep.errors else 0

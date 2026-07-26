@@ -238,7 +238,8 @@ Built from the document, not hand-maintained.
 **Write a spec, do not write html.** The page is compiled from one json file, and the renderer owns every tag, id, and class:
 
 ```bash
-python3 assets/validate.py ~/Downloads/<slug>.json     # fails on a wrong line, a nav-verb headline, an em-dash
+python3 assets/validate.py ~/Downloads/<slug>.json           # fails on a wrong line, a nav-verb headline, an em-dash
+python3 assets/validate.py ~/Downloads/<slug>.json --fix     # code moved: put every ref back on the line its pattern finds
 python3 assets/render.py   ~/Downloads/<slug>.json ~/Downloads/<slug>.html
 ```
 
