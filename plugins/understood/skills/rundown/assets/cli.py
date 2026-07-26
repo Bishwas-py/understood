@@ -9,6 +9,8 @@
     rundown verify ask-loop          validate only, nothing written
     rundown path  ask-loop           print its folder
     rundown rm    ask-loop --force   delete it and its conversation
+    rundown blocks race              what a race takes, and one to paste
+    rundown blocks --demo            a page carrying every block, operable
     rundown install                  install or update the Claude Code plugin
     rundown upgrade                  pull the latest source, update the plugin
     rundown uninstall                remove the command and the plugin
@@ -36,7 +38,7 @@ if str(HERE) not in sys.path:
 import serve as serve_mod  # noqa: E402
 import store  # noqa: E402
 import validate as validate_mod  # noqa: E402
-from spec import load  # noqa: E402
+from spec import BLOCK_SHAPE, load  # noqa: E402
 
 REPO = "Bishwas-py/understood"
 PLUGIN = "understood@understood"
@@ -124,6 +126,71 @@ def cmd_rm(args) -> int:
 
 def cmd_serve(args) -> int:
     return serve_mod.run(args.slug, args.port, args.open)
+
+
+def cmd_blocks(args) -> int:
+    """What each block takes, printed from the same table the validator holds
+    configs to, so what you paste is what will pass."""
+    if args.demo:
+        return build_demo(args)
+    if not args.type:
+        print(f"{'block':<9} {'required':<26} what it is")
+        for name, shape in BLOCK_SHAPE.items():
+            print(f"{name:<9} {', '.join(shape['required']):<26} {shape['does']}")
+        print("\nrundown blocks <block>   its keys and a paste-ready example")
+        print("rundown blocks --demo    build a page carrying every one of them")
+        return 0
+    shape = BLOCK_SHAPE.get(args.type)
+    if not shape:
+        print(f"no block called {args.type!r}, one of: {', '.join(BLOCK_SHAPE)}", file=sys.stderr)
+        return 1
+    print(f"{args.type}: {shape['does']}")
+    print(f"required: {', '.join(shape['required'])}")
+    print(f"optional: {', '.join(shape['optional']) or 'none'}\n")
+    print(json.dumps(shape["example"], indent=2, ensure_ascii=False))
+    return 0
+
+
+def build_demo(args) -> int:
+    """The reference page, assembled from the same examples, so it is a rundown
+    like any other: it validates, it builds, and every chip in it opens."""
+    sha = subprocess.run(
+        ["git", "-C", str(SOURCE), "rev-parse", "--short", "HEAD"], capture_output=True, text=True
+    ).stdout.strip()
+    stops = []
+    for name, shape in BLOCK_SHAPE.items():
+        stop = {
+            "id": f"b-{name}",
+            "headline": f"{name}, {shape['does']}",
+            "block": shape["example"],
+            "think": [{
+                "claim": f"a {name} needs {', '.join(shape['required'])}",
+                "proofs": [f"everything else is optional: {', '.join(shape['optional']) or 'nothing'}"],
+            }],
+        }
+        if shape["example"].get("ref"):
+            stop["ref"] = shape["example"]["ref"]
+        stops.append(stop)
+    spec = {
+        "id": "blocks",
+        "title": "every block, operable",
+        "subtitle": "one stop per block, each one built from the example the validator checks against",
+        "navTitle": "blocks",
+        "repo": {"root": str(HERE.parent), "sha": sha, "editor": "cursor"},
+        "pipeline": {
+            "title": "how to use this page",
+            "steps": [
+                {"text": "operate the block, it runs on real refs into this plugin", "where": "#page"},
+                {"text": "`rundown blocks <name>` prints the config behind it", "where": "#cli"},
+                {"text": "paste that into a stop and change its facts", "where": "#spec"},
+            ],
+            "foot": "every ref on this page points into the plugin's own assets, so every chip opens",
+        },
+        "stages": [{"id": "st-blocks", "title": "every block, operable", "tag": "#blocks", "stops": stops}],
+    }
+    home = store.Home("blocks")
+    store.save_spec(home, spec)
+    return store.build(home, fix=True)
 
 
 def claude_cli() -> str | None:
@@ -259,6 +326,11 @@ def main() -> int:
     p.add_argument("slug")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_rm)
+
+    p = subs.add_parser("blocks", help="what each block takes, with a paste-ready example")
+    p.add_argument("type", nargs="?", help="one block name, or nothing for all of them")
+    p.add_argument("--demo", action="store_true", help="build a page carrying every block")
+    p.set_defaults(fn=cmd_blocks)
 
     subs.add_parser("install", help="install or update the Claude Code plugin").set_defaults(fn=cmd_install)
     subs.add_parser("upgrade", help="pull the latest source, update the plugin").set_defaults(fn=cmd_upgrade)

@@ -13,7 +13,7 @@ import re
 import sys
 from pathlib import Path
 
-from spec import (BLOCK_TYPES, CHIP_RE, EM_DASH, NAV_VERBS, expand_root, find_file, load,
+from spec import (BLOCK_SHAPE, CHIP_RE, EM_DASH, NAV_VERBS, expand_root, find_file, load,
                   pattern_lines, read_lines, ref_parts, ref_str, save, walk_refs)
 
 
@@ -83,6 +83,26 @@ def check_ref(rep: Report, repo: dict, where: str, ref) -> None:
             rep.error(where, f"{symbol} does not appear in {ref['path']}")
 
 
+def check_block(rep: Report, repo: dict, where: str, block: dict) -> None:
+    """A block is held to its declared shape, so a mistyped key is a build error
+    rather than a control that renders and then does nothing."""
+    btype = block.get("type")
+    shape = BLOCK_SHAPE.get(btype)
+    if not shape:
+        rep.error(where, f"unknown block type {btype!r}, one of: {', '.join(sorted(BLOCK_SHAPE))}")
+        return
+    for key in shape["required"]:
+        if block.get(key) in (None, "", [], {}):
+            rep.error(where, f"a {btype} needs {key}, see: rundown blocks {btype}")
+    known = {"type", *shape["required"], *shape["optional"]}
+    for key in block:
+        if key not in known:
+            rep.warn(where, f"a {btype} has no {key!r}, so it is ignored, see: rundown blocks {btype}")
+    for key in ("label", "title", "caption", "runLabel", "invariant"):
+        if isinstance(block.get(key), str):
+            check_text(rep, repo, f"{where}.{key}", block[key])
+
+
 def check_text(rep: Report, repo: dict, where: str, text: str) -> None:
     if EM_DASH in text:
         rep.error(where, "em-dash in page text, use a comma, period, or parentheses")
@@ -137,12 +157,7 @@ def validate(spec: dict) -> Report:
                 check_claim(rep, repo, f"{sid}.headline", head)
             block = stop.get("block")
             if block:
-                btype = block.get("type")
-                if btype not in BLOCK_TYPES:
-                    rep.error(f"{sid}.block", f"unknown block type {btype!r}")
-                for key in ("label", "title"):
-                    if isinstance(block.get(key), str):
-                        check_text(rep, repo, f"{sid}.block.{key}", block[key])
+                check_block(rep, repo, f"{sid}.block", block)
             for ti, think in enumerate(stop.get("think") or []):
                 twhere = f"{sid}.think[{ti}]"
                 claim = think.get("claim", "")

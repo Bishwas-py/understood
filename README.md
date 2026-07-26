@@ -35,9 +35,8 @@ understood/
         rundown/assets/render.py          spec -> one self-contained page
         rundown/assets/mermaid.py         flowcharts drawn to svg at build time
         rundown/assets/template.html      the page shell and its runtime
-        rundown/assets/blocks.html        reference implementations of every block
         rundown/assets/example.json       a complete working spec
-        rundown/assets/cli.py             the rundown command
+        rundown/assets/cli.py             the rundown command, and every block's shape
         rundown/assets/store.py           one folder per rundown, history, snapshots
         rundown/assets/serve.py           one origin for every rundown, index, /ask
         rundown/assets/wait_question.py   the wake loop

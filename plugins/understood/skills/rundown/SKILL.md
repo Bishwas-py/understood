@@ -98,7 +98,7 @@ Nothing else. No KEYWORD, no KNOW MORE, no IN/OUT boxes, no labels about the pag
 ```html
 <li id="s3">
 	<p><span class="action">One "no" closes every gift field before a single search runs</span> <a class="path" href="...">formmap.go:50</a> <code>gates</code></p>
-	<!-- one live block here, copied from assets/blocks.html and adapted -->
+	<!-- one live block here, from `rundown blocks <name>`, with its facts changed -->
 	<ul class="think">
 		<li><b>append holds a lock</b> → two clicks can land the same instant</li>
 	</ul>
@@ -125,7 +125,15 @@ One proof renders flat, `claim -> proof` on a single line. Two or more nest, the
 
 ### The live blocks
 
-Reference implementations for every block live in `assets/blocks.html`; copy the matching one and adapt its facts, refs, and element ids (namespace ids per stop). Pick by what the stop IS:
+Every block declares what it takes, and the command prints it:
+
+```bash
+rundown blocks              # all fourteen, with the keys each one needs
+rundown blocks race         # what a race takes, and a config to paste
+rundown blocks --demo       # builds a page carrying every block, operable, on real refs
+```
+
+Paste the example into the stop's `block` and change its facts. The validator holds a config to that same declaration, so a missing key fails the build and a mistyped one is named in the warning rather than rendering a control that does nothing. Pick by what the stop IS:
 
 | block | fires when the stop is | the reader |
 |---|---|---|

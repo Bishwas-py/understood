@@ -20,10 +20,220 @@ CHIP_RE = re.compile(r"\{([A-Za-z0-9_./\-]+\.[A-Za-z0-9]+:\d+)\}")
 CODE_RE = re.compile(r"`([^`]+)`")
 EM_DASH = "\u2014"
 NAV_VERBS = re.compile(r"^(open|click|cmd-click|scroll|back|line|go to|jump)\b", re.I)
-BLOCK_TYPES = {
-    "switch", "stepper", "dial", "bind", "race", "ledger",
-    "probe", "map", "flow", "space", "angle", "stack", "chain", "raw",
+
+
+
+R_RENDER = {"path": "assets/render.py", "symbol": "render", "pattern": r"^def render\(", "line": 0}
+R_CHECK = {"path": "assets/validate.py", "symbol": "check_ref", "pattern": "^def check_ref", "line": 0}
+R_HOME = {"path": "assets/store.py", "symbol": "Home", "pattern": "^class Home", "line": 0}
+R_SPLIT = {"path": "assets/serve.py", "symbol": "split_path", "pattern": "^def split_path", "line": 0}
+R_WALK = {"path": "assets/spec.py", "symbol": "walk_refs", "pattern": "^def walk_refs", "line": 0}
+R_READ = {"path": "assets/template.html", "symbol": "readSelection", "pattern": "function readSelection", "line": 0}
+R_SVG = {"path": "assets/mermaid.py", "symbol": "to_svg", "pattern": "^def to_svg", "line": 0}
+R_RAIL = {"path": "assets/template.html", "symbol": "layoutRail", "pattern": "function layoutRail", "line": 0}
+
+# What every block takes. One declaration, three readers: `rundown blocks` prints
+# it, the validator holds configs to it, and the demo page is built from the
+# examples, so a shape cannot drift from the code that renders it.
+BLOCK_SHAPE = {
+    "switch": {
+        "does": "a fix or decision toggled in and out of existence",
+        "required": ["on"],
+        "optional": ["ref", "label", "off"],
+        "example": {
+            "type": "switch", "ref": R_CHECK, "label": "pattern",
+            "on": {
+                "state": "in the build",
+                "lines": ["the ref carries a pattern", "the code moves nine lines down"],
+                "result": {"text": "the line is repaired,", "note": "and written back to the spec", "tone": "good"},
+            },
+            "off": {
+                "state": "taken out",
+                "lines": ["only a line number is stored", "the code moves nine lines down"],
+                "result": {"text": "the chip opens the wrong line,", "note": "in front of the reviewer", "tone": "bad"},
+            },
+        },
+    },
+    "stepper": {
+        "does": "one real value driven through its moments",
+        "required": ["moments"],
+        "optional": ["ref"],
+        "example": {
+            "type": "stepper",
+            "moments": [
+                {"text": "the old spec is copied to `history/`, stamped to the second", "chip": R_HOME},
+                {"text": "then the new one is written, one field per line", "chip": R_WALK},
+            ],
+        },
+    },
+    "dial": {
+        "does": "a tuned constant dragged, with the shipped value marked",
+        "required": ["zones"],
+        "optional": ["ref", "name", "min", "max", "step", "value", "decimals", "readout"],
+        "example": {
+            "type": "dial", "ref": R_HOME, "name": "KEEP", "min": 0, "max": 60, "step": 1,
+            "value": 20, "decimals": 0, "readout": "{v} snapshots kept per rundown",
+            "zones": [
+                {"upto": 2, "verdict": "no undo worth having", "tone": "bad"},
+                {"upto": 40, "verdict": "a week of edits, cheap on disk", "tone": "good"},
+                {"upto": 60, "verdict": "a directory nobody opens", "tone": "bad"},
+            ],
+        },
+    },
+    "bind": {
+        "does": "an artifact whose clauses glow with their meaning",
+        "required": ["artifact", "pairs"],
+        "optional": ["ref"],
+        "example": {
+            "type": "bind", "ref": R_RENDER,
+            "artifact": '{\n  "id": "s2",\n  "headline": "a pattern outranks the line number"\n}',
+            "pairs": [
+                {"clause": '"id": "s2"', "name": "id", "meaning": "what a question, a card, and its thread hang off"},
+                {"clause": '"headline"', "name": "headline", "meaning": "the claim this stop proves"},
+            ],
+        },
+    },
+    "race": {
+        "does": "two runs at one row, with the guard and without it",
+        "required": ["toggle", "row", "with"],
+        "optional": ["ref", "without"],
+        "example": {
+            "type": "race",
+            "toggle": {"label": "the folder is the identity", "ref": R_HOME},
+            "row": {"id": "888c4b73", "question": "does it reach the right folder?"},
+            "with": [
+                {"text": "page.html overwritten in place"},
+                {"text": "questions.jsonl untouched", "tone": "good"},
+            ],
+            "without": [
+                {"text": "rendered to a new filename"},
+                {"text": "the whole thread is orphaned", "tone": "bad"},
+            ],
+        },
+    },
+    "ledger": {
+        "does": "an invariant the reader presses until it refuses",
+        "required": ["actions"],
+        "optional": ["ref", "empty", "countLabel", "invariant"],
+        "example": {
+            "type": "ledger", "ref": R_HOME, "empty": "no snapshot yet",
+            "countLabel": "snapshots", "invariant": "no write lands without one",
+            "actions": [
+                {"label": "save the spec", "creates": {"history": "2026-07-26T11-21-09.json"}, "says": "copied first, then written", "tone": "good"},
+                {"label": "restore it", "needsRow": True, "refuses": "nothing to restore, save one first",
+                 "sets": {"restored": True}, "says": "the snapshot is back in place", "tone": "good"},
+            ],
+        },
+    },
+    "probe": {
+        "does": "real inputs fed in, one branch lighting per input",
+        "required": ["inputs"],
+        "optional": ["ref"],
+        "example": {
+            "type": "probe", "ref": R_CHECK,
+            "inputs": [
+                {"label": "pattern still matches", "route": "line kept, page ships", "tone": "good",
+                 "fields": {"ref says": "43", "pattern finds": "43"}},
+                {"label": "the file is gone", "route": "build error, nothing is served", "tone": "bad",
+                 "fields": {"path": "assets/serve.py", "found": ""}},
+            ],
+        },
+    },
+    "map": {
+        "does": "the parts and who owns them, structure rather than sequence",
+        "required": ["nodes"],
+        "optional": ["ref"],
+        "example": {
+            "type": "map",
+            "nodes": [
+                {"label": "spec.json", "note": "the truth", "ref": R_WALK},
+                {"label": "render.py", "note": "owns every tag", "ref": R_RENDER},
+                {"label": "page.html", "note": "build output", "ref": R_RAIL},
+            ],
+        },
+    },
+    "flow": {
+        "does": "the whole journey as a real flowchart, every node a code ref",
+        "required": ["mermaid"],
+        "optional": ["refs", "caption"],
+        "example": {
+            "type": "flow",
+            "mermaid": "flowchart TD\n    A[select, press Ask] --> B{which slug}\n    B -->|first segment| C[(questions.jsonl)]\n    C --> A",
+            "refs": {"A": R_READ, "B": R_SPLIT, "C": R_HOME},
+            "caption": "asked from one rundown, landed in that rundown's file",
+        },
+    },
+    "space": {
+        "does": "a query embedded, the nearest points lighting with scores",
+        "required": ["points", "queries"],
+        "optional": ["ref", "w", "h"],
+        "example": {
+            "type": "space", "ref": R_SVG, "w": 320, "h": 190,
+            "points": [
+                {"label": "spec.json", "x": 60, "y": 60},
+                {"label": "render.py", "x": 190, "y": 90},
+                {"label": "serve.py", "x": 250, "y": 150},
+            ],
+            "queries": [
+                {"label": "where does a tag come from", "star": [180, 80], "scores": [0.41, 0.88, 0.33], "top": 2},
+                {"label": "who answers a request", "star": [245, 140], "scores": [0.29, 0.44, 0.91], "top": 2},
+            ],
+        },
+    },
+    "angle": {
+        "does": "cosine as an angle the reader drags past the shipped gate",
+        "required": ["zones"],
+        "optional": ["ref", "gate", "start", "note"],
+        "example": {
+            "type": "angle", "ref": R_SVG, "gate": 0.35, "start": 20,
+            "note": "the gate is the value in the code, not a round number",
+            "zones": [
+                {"above": 0.7, "text": "the same thing, said twice", "tone": "good"},
+                {"above": 0.35, "text": "related, worth returning", "tone": "good"},
+                {"above": -1, "text": "below the gate, dropped", "tone": "bad"},
+            ],
+        },
+    },
+    "stack": {
+        "does": "a context window assembled part by part against a budget",
+        "required": ["parts", "budget"],
+        "optional": ["ref", "fits", "over"],
+        "example": {
+            "type": "stack", "ref": R_RENDER, "budget": 8000,
+            "fits": "fits, the page stays one file",
+            "over": "over budget, the model truncates",
+            "parts": [
+                {"label": "the spec", "tokens": 2400, "on": True},
+                {"label": "the template", "tokens": 5200, "on": True},
+                {"label": "every asset", "tokens": 9000},
+            ],
+        },
+    },
+    "chain": {
+        "does": "a call path or a value's origin, hop by hop, forward or backward",
+        "required": ["hops"],
+        "optional": ["ref", "runLabel", "seed"],
+        "example": {
+            "type": "chain", "runLabel": "send it through", "seed": 'one real question, "hey",',
+            "hops": [
+                {"label": "pointerup", "out": "two characters minimum",
+                 "desc": "a chip appears only for a real selection", "chip": R_READ},
+                {"label": "POST", "out": "888c4b73",
+                 "desc": "the record carries its stop, block, and part", "chip": R_SPLIT},
+            ],
+        },
+    },
+    "raw": {
+        "does": "markup with no behaviour, for the shape no block covers",
+        "required": ["html"],
+        "optional": [],
+        "example": {"type": "raw", "html": '<div class="ba"><div class="b"><b>BEFORE</b> one port per page</div>'
+                                          '<div class="a"><b>AFTER</b> one origin for all of them</div></div>'},
+    },
 }
+
+
+BLOCK_TYPES = set(BLOCK_SHAPE)
 
 
 def esc(text: str) -> str:
