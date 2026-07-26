@@ -503,6 +503,12 @@
 	}
 	.qa.reply::before, .qa.reply::after { content: none; }
 	.qa.reply .qa-q::before { content: "\21B3\00a0"; color: var(--accent); font-weight: 700; }
+	/* A thread from a mark to its card. Drawn behind the text at low opacity,
+	   so it reads as a hint rather than a line you have to look past. */
+	#link-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: -1; overflow: visible; }
+	#link-layer path { fill: none; stroke: var(--accent); stroke-width: 1.1; opacity: .22;
+		transition: opacity .2s, stroke-width .2s; }
+	#link-layer path.lit { opacity: .75; stroke-width: 1.6; }
 	#hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 	#hl-layer .hl { position: absolute; border-radius: 2px; }
 	#hl-layer .hl.asking { background: var(--hl-asking); }
@@ -606,6 +612,8 @@
 	hlLayer.id = 'hl-layer';
 	const rail = document.createElement('div');
 	rail.id = 'qa-rail';
+	const linkLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	linkLayer.id = 'link-layer';
 	// Discussion: a comments section at the end of the page, not a floating box.
 	// A rendered page already carries one, so adopt it; only build it when absent.
 	let discuss = document.getElementById('discuss');
@@ -629,7 +637,7 @@
 		discuss.append(discussH, chatlog, discussBox);
 		mainEl.append(discuss);
 	}
-	document.body.append(hlLayer, rail);
+	document.body.append(linkLayer, hlLayer, rail);
 
 	function goDiscuss() {
 		chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -802,10 +810,40 @@
 			setDir(card, vert + (side === 'left' ? 'r' : 'l'));
 		}
 	}
+	function paintLinks() {
+		const doc = document.documentElement;
+		linkLayer.setAttribute('width', doc.scrollWidth);
+		linkLayer.setAttribute('height', doc.scrollHeight);
+		linkLayer.replaceChildren();
+		for (const [id, range] of askedRanges) {
+			const card = document.getElementById('qa-' + id);
+			if (!card || !rail.contains(card)) continue;
+			const bands = lineBands(range);
+			if (!bands.length) continue;
+			const cr = card.getBoundingClientRect();
+			const cardLeftOfText = cr.right < bands[0].left;
+			const band = bands[bands.length - 1];
+			const from = cardLeftOfText
+				? { x: band.left + scrollX, y: (band.top + band.bottom) / 2 + scrollY }
+				: { x: band.right + scrollX, y: (band.top + band.bottom) / 2 + scrollY };
+			const to = {
+				x: (cardLeftOfText ? cr.right : cr.left) + scrollX,
+				y: cr.top + scrollY + Math.min(22, cr.height / 2),
+			};
+			const dx = Math.max(28, Math.abs(to.x - from.x) * 0.45);
+			const c1 = { x: from.x + (cardLeftOfText ? -dx : dx), y: from.y };
+			const c2 = { x: to.x + (cardLeftOfText ? dx : -dx), y: to.y };
+			const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			p.setAttribute('d', `M ${from.x} ${from.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y}`);
+			p.dataset.qid = id;
+			linkLayer.append(p);
+		}
+	}
+
 	let layoutRaf = null;
 	window.addEventListener('resize', () => {
 		if (layoutRaf) return;
-		layoutRaf = requestAnimationFrame(() => { layoutRaf = null; paintHl(); layoutRail(); });
+		layoutRaf = requestAnimationFrame(() => { layoutRaf = null; paintHl(); layoutRail(); paintLinks(); });
 	});
 
 	function hideAsk() {
@@ -954,6 +992,7 @@
 		askingRange = null;
 		submitQuestion({ id, stop, selection: quote ? quote.text : '', question, parent, via, block, part });
 		paintHl();
+		paintLinks();
 	}
 
 	askInput.addEventListener('keydown', e => {
@@ -1087,10 +1126,14 @@
 			card.className = q.parent ? 'qa reply' : 'qa';
 			card.id = 'qa-' + q.id;
 			card.dataset.via = q.via || '';
-			card.addEventListener('mouseenter', () =>
-				hlLayer.querySelectorAll('.hl[data-qid="' + q.id + '"]').forEach(d => d.classList.add('lit')));
-			card.addEventListener('mouseleave', () =>
-				hlLayer.querySelectorAll('.hl.lit').forEach(d => d.classList.remove('lit')));
+			card.addEventListener('mouseenter', () => {
+				hlLayer.querySelectorAll('.hl[data-qid="' + q.id + '"]').forEach(d => d.classList.add('lit'));
+				linkLayer.querySelectorAll('path[data-qid="' + q.id + '"]').forEach(d => d.classList.add('lit'));
+			});
+			card.addEventListener('mouseleave', () => {
+				hlLayer.querySelectorAll('.hl.lit').forEach(d => d.classList.remove('lit'));
+				linkLayer.querySelectorAll('path.lit').forEach(d => d.classList.remove('lit'));
+			});
 			if (q.selection) {
 				const selP = document.createElement('p');
 				selP.className = 'qa-sel';
@@ -1220,7 +1263,7 @@
 			}
 			changed = restoreRanges(d.questions) > 0 || changed;
 			if (pending) startPolling(); else stopPolling();
-			if (changed) { paintHl(); layoutRail(); }
+			if (changed) { paintHl(); layoutRail(); paintLinks(); }
 		} catch (e) { /* server gone; leave the cards as they are */ }
 	}
 	// Any file:line chip left as plain text becomes a real editor link, using the
