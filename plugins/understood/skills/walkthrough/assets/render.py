@@ -16,7 +16,8 @@ import sys
 from pathlib import Path
 
 import mermaid
-from spec import chip, esc, inline, json_block, load, pretty, ref_href, ref_parts
+from spec import (BLOCK_TYPES, EM_DASH, chip, esc, inline, json_block, load, pretty,
+                  ref_href, ref_label)
 
 HERE = Path(__file__).resolve().parent
 
@@ -48,13 +49,15 @@ def _cfg(kind: str, repo: dict, cfg: dict, inner: str, stop_id: str) -> str:
     )
 
 
-def _head(repo: dict, ref: str | None, label: str, extra: str = "") -> str:
-    bits = []
-    if ref:
-        bits.append(chip(repo, ref))
-    if label:
-        bits.append(f"<code>{esc(label)}</code>")
-    return f'<div class="blk-head">{extra}{" ".join(bits)}</div>'
+def _ref(repo: dict, c: dict) -> str:
+    """A block's own chip, or nothing. Eight blocks used to inline this."""
+    return chip(repo, c["ref"]) if c.get("ref") else ""
+
+
+def _chipped(repo: dict, c: dict, key: str) -> dict:
+    """Pre-render the chips a runtime writes with innerHTML, once, at build."""
+    items = [dict(i, chip=chip(repo, i["chip"]) if i.get("chip") else "") for i in c.get(key, [])]
+    return dict(c, **{key: items})
 
 
 def b_switch(repo, sid, c):
@@ -62,13 +65,9 @@ def b_switch(repo, sid, c):
     lines = "".join(f'<div class="ln">{inline(repo, l)}</div>' for l in on.get("lines", []))
     res = on.get("result", {})
     toggle = '<button class="tgl" type="button" aria-pressed="true"><span class="knob"></span></button>'
-    bits = []
-    if c.get("ref"):
-        bits.append(chip(repo, c["ref"]))
-    if c.get("label"):
-        bits.append(f'<code>{esc(c["label"])}</code>')
+    label = f'<code>{esc(c["label"])}</code>' if c.get("label") else ""
     head = (
-        f'<div class="blk-head">{toggle}{" ".join(bits)}'
+        f'<div class="blk-head">{toggle}{_ref(repo, c)} {label}'
         f'<span class="state">{esc(on.get("state", "in the build"))}</span></div>'
     )
     body = (
@@ -84,7 +83,7 @@ def b_race(repo, sid, c):
     head = (
         '<div class="blk-head"><button class="btn primary run" type="button">run the race</button>'
         '<label class="lock"><input type="checkbox" checked> '
-        + (chip(repo, t["ref"]) if t.get("ref") else "")
+        + (_ref(repo, t))
         + f' <code>{esc(t.get("label", "lock"))}</code></label></div>'
     )
     row = f'<div class="blk-body"><div class="row">{esc(pretty(c.get("row", {})))}</div><div class="log"></div></div>'
@@ -92,7 +91,7 @@ def b_race(repo, sid, c):
 
 
 def b_chain(repo, sid, c):
-    c = dict(c, hops=[dict(h, chip=chip(repo, h["chip"]) if h.get("chip") else "") for h in c.get("hops", [])])
+    c = _chipped(repo, c, "hops")
     hops = "".join(
         f'<span class="hop" data-i="{i}">{esc(h.get("label", ""))}</span>'
         + ('<span class="arw">&rArr;</span>' if i < len(c.get("hops", [])) - 1 else "")
@@ -115,7 +114,7 @@ def b_dial(repo, sid, c):
     val = c.get("value", 0)
     head = (
         '<div class="blk-head">'
-        + (chip(repo, c["ref"]) if c.get("ref") else "")
+        + _ref(repo, c)
         + f' <code>{esc(c.get("name", "value"))} = <b class="dv">{val}</b></code>'
         f'<input class="rng" type="range" min="{c.get("min", 0)}" max="{c.get("max", 100)}" '
         f'step="{c.get("step", 1)}" value="{val}"></div>'
@@ -129,26 +128,27 @@ def b_probe(repo, sid, c):
         f'<button class="btn mono in" type="button" data-i="{i}">{esc(i_["label"])}</button>'
         for i, i_ in enumerate(c.get("inputs", []))
     )
-    head = f'<div class="blk-head"><span class="hint">feed:</span>{ins}' + (
-        chip(repo, c["ref"]) if c.get("ref") else ""
-    ) + "</div>"
+    head = f'<div class="blk-head"><span class="hint">feed:</span>{ins}' + _ref(repo, c) + "</div>"
     body = '<div class="blk-body"><div class="route">press an input</div><div class="fields"></div></div>'
     return _cfg("probe", repo, c, head + body, sid)
 
 
 def b_bind(repo, sid, c):
-    art = c.get("artifact", "")
-    for i, pair in enumerate(c.get("pairs", [])):
-        art = art.replace(pair["clause"], f"\x00{i}\x01{pair['clause']}\x02{i}\x03", 1)
-    art = esc(art)
-    for i, _ in enumerate(c.get("pairs", [])):
-        art = art.replace(f"\x00{i}\x01", f'<span class="bd" data-k="{i}">')
-        art = art.replace(f"\x02{i}\x03", "</span>")
+    pairs = c.get("pairs", [])
+    rest, parts = c.get("artifact", ""), []
+    for i, pair in enumerate(pairs):
+        clause = pair["clause"]
+        head, _, rest = rest.partition(clause)
+        parts.append(esc(head))
+        parts.append(f'<span class="bd" data-k="{i}">{esc(clause)}</span>')
+    parts.append(esc(rest))
+    art = "".join(parts)
     items = "".join(
         f'<li class="bl" data-k="{i}"><b>{esc(p.get("name", ""))}</b> {inline(repo, p.get("meaning", ""))}</li>'
-        for i, p in enumerate(c.get("pairs", []))
+        for i, p in enumerate(pairs)
     )
-    return _cfg("bind", repo, c, f'<div class="blk-body"><pre class="art"><code>{art}</code></pre><ul class="plain">{items}</ul></div>', sid)
+    body = f'<div class="blk-body"><pre class="art"><code>{art}</code></pre><ul class="plain">{items}</ul></div>'
+    return _cfg("bind", repo, c, body, sid)
 
 
 def b_ledger(repo, sid, c):
@@ -156,7 +156,7 @@ def b_ledger(repo, sid, c):
         f'<button class="btn{" primary" if i == 0 else ""} act" type="button" data-i="{i}">{esc(a["label"])}</button>'
         for i, a in enumerate(c.get("actions", []))
     )
-    head = f'<div class="blk-head">{btns}' + (chip(repo, c["ref"]) if c.get("ref") else "") + "</div>"
+    head = f'<div class="blk-head">{btns}' + _ref(repo, c) + "</div>"
     body = (
         f'<div class="blk-body"><div class="row">{esc(c.get("empty", "nothing yet"))}</div>'
         f'<div class="count"><b>{esc(c.get("countLabel", "rows"))}: <span class="n">0</span></b> '
@@ -167,7 +167,7 @@ def b_ledger(repo, sid, c):
 
 
 def b_stepper(repo, sid, c):
-    c = dict(c, moments=[dict(m, chip=chip(repo, m["chip"]) if m.get("chip") else "") for m in c.get("moments", [])])
+    c = _chipped(repo, c, "moments")
     head = (
         '<div class="blk-head"><button class="btn prev" type="button">&larr;</button>'
         '<button class="btn primary next" type="button">next &rarr;</button>'
@@ -181,8 +181,6 @@ def b_map(repo, sid, c):
     for i, n in enumerate(c.get("nodes", [])):
         href = ""
         if n.get("ref"):
-            from spec import ref_href
-
             h = ref_href(repo, n["ref"])
             href = f' href="{esc(h)}"' if h else ""
         tag = "a" if href else "span"
@@ -206,9 +204,7 @@ def b_space(repo, sid, c):
         f'<button class="btn q" type="button" data-i="{i}">{esc(q["label"])}</button>'
         for i, q in enumerate(c.get("queries", []))
     )
-    head = f'<div class="blk-head"><span class="hint">embed the query:</span>{qs}' + (
-        chip(repo, c["ref"]) if c.get("ref") else ""
-    ) + "</div>"
+    head = f'<div class="blk-head"><span class="hint">embed the query:</span>{qs}' + _ref(repo, c) + "</div>"
     body = (
         f'<div class="blk-body"><svg class="space" viewBox="0 0 {c.get("w", 320)} {c.get("h", 190)}">'
         f'{pts}<text class="star" x="-20" y="-20">&#9733;</text></svg>'
@@ -220,7 +216,7 @@ def b_space(repo, sid, c):
 def b_angle(repo, sid, c):
     head = (
         '<div class="blk-head">'
-        + (chip(repo, c["ref"]) if c.get("ref") else "")
+        + _ref(repo, c)
         + f' <code>cos = <b class="cv">1.00</b></code>'
         f'<input class="rng" type="range" min="0" max="180" step="2" value="{c.get("start", 20)}"></div>'
     )
@@ -243,7 +239,7 @@ def b_stack(repo, sid, c):
         f'{esc(p["label"])}</label>'
         for i, p in enumerate(c.get("parts", []))
     )
-    head = f'<div class="blk-head">{parts}' + (chip(repo, c["ref"]) if c.get("ref") else "") + "</div>"
+    head = f'<div class="blk-head">{parts}' + _ref(repo, c) + "</div>"
     body = (
         '<div class="blk-body"><div class="bar"><div class="fill"></div></div>'
         f'<div class="read"><b class="tok">0</b> / {c.get("budget", 8000)} token budget '
@@ -275,6 +271,9 @@ BLOCKS = {
 }
 
 
+assert set(BLOCKS) == BLOCK_TYPES, f"block registries disagree: {set(BLOCKS) ^ BLOCK_TYPES}"
+
+
 # --------------------------------------------------------------------------- page
 
 def think_html(repo: dict, stop_id: str, think: list) -> str:
@@ -303,8 +302,7 @@ def stop_html(repo: dict, stop: dict) -> str:
     chip_html = ""
     sym = ""
     if ref:
-        r = ref if isinstance(ref, str) else f'{ref["path"]}:{ref.get("line", 0)}'
-        chip_html = " " + chip(repo, r)
+        chip_html = " " + chip(repo, ref)
         if isinstance(ref, dict) and ref.get("symbol"):
             sym = f' <code>{esc(ref["symbol"])}</code>'
     head = (
@@ -404,11 +402,7 @@ def nav_html(spec: dict) -> str:
         out.append('<ol class="sub">')
         for stop in stage.get("stops", []):
             ref = stop.get("ref")
-            label = stop["id"]
-            if ref:
-                r = ref if isinstance(ref, str) else f'{ref["path"]}:{ref.get("line", 0)}'
-                path, line = ref_parts(r)
-                label = f"{Path(path).name}:{line}" if line else Path(path).name
+            label = ref_label(ref) if ref else stop["id"]
             out.append(f'<li><a href="#{esc(stop["id"])}">{esc(label)}</a></li>')
         out.append("</ol>")
     out.append('<li><a class="sec" href="#claims">claim checks</a></li>')
@@ -443,7 +437,7 @@ def render(spec: dict) -> str:
         .replace("{{BODY}}", body_html(spec))
         .replace("{{SKILLS}}", skills)
     )
-    if "—" in html:
+    if EM_DASH in html:
         raise SystemExit("em-dash reached the page, fix the spec")
     return html
 

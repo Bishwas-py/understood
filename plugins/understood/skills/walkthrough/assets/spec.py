@@ -12,10 +12,13 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
+from html import escape
 from pathlib import Path
 
 CHIP_RE = re.compile(r"\{([A-Za-z0-9_./\-]+\.[A-Za-z0-9]+:\d+)\}")
 CODE_RE = re.compile(r"`([^`]+)`")
+EM_DASH = "\u2014"
 NAV_VERBS = re.compile(r"^(open|click|cmd-click|scroll|back|line|go to|jump)\b", re.I)
 BLOCK_TYPES = {
     "switch", "stepper", "dial", "bind", "race", "ledger",
@@ -24,15 +27,10 @@ BLOCK_TYPES = {
 
 
 def esc(text: str) -> str:
-    return (
-        str(text)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return escape(str(text))
 
 
+@lru_cache(maxsize=None)
 def expand_root(root: str) -> Path:
     return Path(root).expanduser().resolve()
 
@@ -45,6 +43,7 @@ def ref_parts(ref: str) -> tuple[str, int]:
     return ref, 0
 
 
+@lru_cache(maxsize=None)
 def find_file(root: Path, path: str) -> Path | None:
     """Accept a full relative path, or just a basename we can locate once."""
     direct = root / path
@@ -57,9 +56,9 @@ def find_file(root: Path, path: str) -> Path | None:
     return None
 
 
-def ref_href(repo: dict, ref: str) -> str | None:
+def ref_href(repo: dict, ref) -> str | None:
     """Absolute editor URI for a chip, or None when the file cannot be found."""
-    path, line = ref_parts(ref)
+    path, line = ref_parts(ref_str(ref))
     hit = find_file(expand_root(repo["root"]), path)
     if not hit:
         return None
@@ -67,11 +66,23 @@ def ref_href(repo: dict, ref: str) -> str | None:
     return f"{scheme}://file{hit}:{line}" if line else f"{scheme}://file{hit}"
 
 
-def chip(repo: dict, ref: str, label: str | None = None) -> str:
+def ref_str(ref) -> str:
+    """A ref is either "path:line" or {path, line, ...}; this is the string form."""
+    if isinstance(ref, str):
+        return ref
+    line = ref.get("line") or 0
+    return f'{ref["path"]}:{line}' if line else ref["path"]
+
+
+def ref_label(ref) -> str:
+    """What a chip for this ref says: the basename, with its line when it has one."""
+    path, line = ref_parts(ref_str(ref))
+    return f"{Path(path).name}:{line}" if line else Path(path).name
+
+
+def chip(repo: dict, ref) -> str:
     """One code chip. Always an anchor when the file resolves, never bare text."""
-    label = label or Path(ref_parts(ref)[0]).name
-    if ref_parts(ref)[1]:
-        label = f"{Path(ref_parts(ref)[0]).name}:{ref_parts(ref)[1]}"
+    label = ref_label(ref)
     href = ref_href(repo, ref)
     if not href:
         return f'<span class="path">{esc(label)}</span>'
@@ -105,8 +116,37 @@ def json_block(value) -> str:
     return f'<pre class="rec"><code>{tint_json(esc(pretty(value)))}</code></pre>'
 
 
-def stop_anchor(stop_id: str, part: str = "") -> str:
-    return f"{stop_id}.{part}" if part else stop_id
+def walk_refs(spec: dict):
+    """Yield (where, container, key) for every ref in a spec, at any depth.
+
+    A ref is a promise, so validation, resync, and rendering must all see the
+    same set. They used to disagree: stop refs were checked, and the ones a
+    block emits were not.
+    """
+    pipe = spec.get("pipeline") or {}
+    for i, step in enumerate(pipe.get("steps") or []):
+        if step.get("ref"):
+            yield f"pipeline.steps[{i}].ref", step, "ref"
+    for si, stage in enumerate(spec.get("stages") or []):
+        for pi, stop in enumerate(stage.get("stops") or []):
+            sid = stop.get("id") or f"stages[{si}].stops[{pi}]"
+            if stop.get("ref"):
+                yield f"{sid}.ref", stop, "ref"
+            block = stop.get("block") or {}
+            if block.get("ref"):
+                yield f"{sid}.block.ref", block, "ref"
+            if (block.get("toggle") or {}).get("ref"):
+                yield f"{sid}.block.toggle.ref", block["toggle"], "ref"
+            for key in ("hops", "moments"):
+                for i, item in enumerate(block.get(key) or []):
+                    if item.get("chip"):
+                        yield f"{sid}.block.{key}[{i}].chip", item, "chip"
+            for i, node in enumerate(block.get("nodes") or []):
+                if node.get("ref"):
+                    yield f"{sid}.block.nodes[{i}].ref", node, "ref"
+            refs = block.get("refs") or {}
+            for key in refs:
+                yield f"{sid}.block.refs.{key}", refs, key
 
 
 def load(path: Path) -> dict:
@@ -115,3 +155,20 @@ def load(path: Path) -> dict:
 
 def save(path: Path, spec: dict) -> None:
     Path(path).write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def append_jsonl(path: Path, record: dict) -> None:
+    """One record, one line. The only way anything is added to a jsonl here."""
+    with Path(path).open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+@lru_cache(maxsize=None)
+def read_lines(path: Path) -> list[str]:
+    return Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+
+
+def pattern_lines(lines: list[str], pattern: str) -> list[int]:
+    """Line numbers a pattern matches, or a ValueError the caller can report."""
+    rx = re.compile(pattern)
+    return [i + 1 for i, l in enumerate(lines) if rx.search(l)]

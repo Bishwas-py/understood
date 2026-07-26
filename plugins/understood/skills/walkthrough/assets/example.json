@@ -63,13 +63,18 @@
           "ref": {
             "path": "assets/template.html",
             "symbol": "readSelection",
-            "line": 928,
+            "line": 944,
             "pattern": "function readSelection"
           },
           "block": {
             "type": "switch",
             "label": "cloneRange",
-            "ref": "assets/template.html:911",
+            "ref": {
+              "path": "assets/template.html",
+              "line": 1040,
+              "pattern": "savedRange = s && s\\.rangeCount",
+              "symbol": "cloneRange"
+            },
             "on": {
               "state": "IN THE BUILD",
               "lines": [
@@ -129,7 +134,12 @@
           },
           "block": {
             "type": "probe",
-            "ref": "assets/serve.py:139",
+            "ref": {
+              "path": "assets/serve.py",
+              "line": 139,
+              "pattern": "def do_POST",
+              "symbol": "do_POST"
+            },
             "inputs": [
               {
                 "label": "{\"id\":\"q1\",\"question\":\"hey\"}",
@@ -198,25 +208,41 @@
             "hops": [
               {
                 "label": "files_signature()",
-                "chip": "wait_question.py:29",
+                "chip": {
+                  "path": "assets/wait_question.py",
+                  "line": 29,
+                  "pattern": "def files_signature"
+                },
                 "out": "mtime and size changed",
                 "desc": "the loop only re-parses when a file actually moved"
               },
               {
                 "label": "pending = questions - answers",
-                "chip": "wait_question.py:62",
+                "chip": {
+                  "path": "assets/wait_question.py",
+                  "line": 63,
+                  "pattern": "pending = \\[q for q"
+                },
                 "out": "1 pending record",
                 "desc": "pending is question ids minus answer ids, so a crash re-surfaces the same question"
               },
               {
                 "label": "print + exit 0",
-                "chip": "wait_question.py:66",
+                "chip": {
+                  "path": "assets/wait_question.py",
+                  "line": 66,
+                  "pattern": "print\\(json\\.dumps\\(question"
+                },
                 "out": "the session wakes",
                 "desc": "the process dying is the signal; nothing polls a model"
               },
               {
                 "label": "--answer <id>",
-                "chip": "wait_question.py:48",
+                "chip": {
+                  "path": "assets/wait_question.py",
+                  "line": 53,
+                  "pattern": "args\\.answers\\.open"
+                },
                 "out": "answers.jsonl: +1 line",
                 "desc": "answer text arrives on stdin, so shell quoting never touches it"
               }
@@ -245,19 +271,47 @@
           "ref": {
             "path": "assets/template.html",
             "symbol": "cardKind",
-            "line": 785,
+            "line": 794,
             "pattern": "function cardKind"
           },
           "block": {
             "type": "flow",
             "mermaid": "flowchart TD\n    A[you select text and press Ask] --> B[POST /ask]\n    B -->|64 KB cap, one lock| C[(questions.jsonl)]\n    C --> D{waiter: any id without an answer}\n    D -->|exit 0, the wake signal| E[the building session answers]\n    E --> F[(answers.jsonl)]\n    F -->|poll every 2s| G([card fills, mark turns yellow])\n    G --> A",
             "refs": {
-              "A": "assets/template.html:822",
-              "B": "assets/serve.py:139",
-              "C": "assets/serve.py:163",
-              "D": "assets/wait_question.py:58",
-              "E": "assets/wait_question.py:53",
-              "G": "assets/template.html:735"
+              "A": {
+                "path": "assets/template.html",
+                "line": 944,
+                "pattern": "function readSelection",
+                "symbol": "readSelection"
+              },
+              "B": {
+                "path": "assets/serve.py",
+                "line": 139,
+                "pattern": "def do_POST",
+                "symbol": "do_POST"
+              },
+              "C": {
+                "path": "assets/serve.py",
+                "line": 165,
+                "pattern": "with append_lock",
+                "symbol": "append_lock"
+              },
+              "D": {
+                "path": "assets/wait_question.py",
+                "line": 58,
+                "pattern": "while True"
+              },
+              "E": {
+                "path": "assets/wait_question.py",
+                "line": 53,
+                "pattern": "args\\.answers\\.open"
+              },
+              "G": {
+                "path": "assets/template.html",
+                "line": 794,
+                "pattern": "function cardKind",
+                "symbol": "cardKind"
+              }
             },
             "caption": "every node is a code reference, the loop closes because an answered card can be quoted again"
           },

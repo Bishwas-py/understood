@@ -60,7 +60,7 @@ def parse(src: str):
     nodes: dict[str, Node] = {}
     edges: list[tuple[str, str, str]] = []
 
-    def touch(key, open_, label, close):
+    def touch(key, open_, label):
         shape = SHAPES.get(open_ or "[", "box")
         if key not in nodes:
             nodes[key] = Node(key, (label or "").strip('"'), shape)
@@ -80,13 +80,13 @@ def parse(src: str):
             continue
         m = EDGE_RE.match(line)
         if m:
-            a = touch(m.group(1), m.group(2), m.group(3), m.group(4))
-            b = touch(m.group(7), m.group(8), m.group(9), m.group(10))
+            a = touch(m.group(1), m.group(2), m.group(3))
+            b = touch(m.group(7), m.group(8), m.group(9))
             edges.append((a, b, (m.group(6) or "").strip()))
             continue
         m = NODE_RE.match(line)
         if m and m.group(2):
-            touch(m.group(1), m.group(2), m.group(3), m.group(4))
+            touch(m.group(1), m.group(2), m.group(3))
     return direction, nodes, edges
 
 
@@ -126,7 +126,6 @@ def layout(direction: str, nodes: dict, edges: list) -> tuple[float, float]:
             width_needed = max(width_needed, span + 40)
             cursor += max(n.h for n in row) + GAP_RANK
         else:
-            span = sum(n.h for n in row) + GAP_SIB * (len(row) - 1)
             y = 20.0
             widest = max(n.w for n in row)
             for n in row:
@@ -164,7 +163,7 @@ def rounded(points: list, r: float) -> str:
     return " ".join(parts) + " Z"
 
 
-def shape_svg(n: Node, href: str = "") -> str:
+def shape_svg(n: Node) -> str:
     x, y, w, h = n.x, n.y, n.w, n.h
     label = escape(n.label)
     text = f'<text x="{x + w / 2:.1f}" y="{y + h / 2 + 4:.1f}" text-anchor="middle">{label}</text>'
@@ -187,10 +186,10 @@ def shape_svg(n: Node, href: str = "") -> str:
     return f'<rect class="nd" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="{rx:.1f}"/>{text}'
 
 
-def wrap(svg: str, href: str, key: str = "") -> str:
+def wrap(svg: str, href: str, key: str) -> str:
     if not href:
-        return f'<g class="nd-g" data-key="{escape(key, quote=True)}">{svg}</g>' if key else svg
-    return f'<a class="nd-a" data-key="{escape(key, quote=True)}" href="{escape(href, quote=True)}">{svg}</a>' 
+        return f'<g class="nd-g" data-key="{escape(key)}">{svg}</g>' if key else svg
+    return f'<a class="nd-a" data-key="{escape(key)}" href="{escape(href)}">{svg}</a>' 
 
 
 def edge_svg(a: Node, b: Node, label: str, vertical: bool, right_edge: float = 0.0) -> str:

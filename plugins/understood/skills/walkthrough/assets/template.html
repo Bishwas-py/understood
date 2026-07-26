@@ -315,7 +315,6 @@
 	svg.mmd { display: block; margin: 0 auto; max-width: 100%; height: auto; font-size: 12.5px; }
 	svg.mmd .nd { fill: var(--panel); stroke: var(--line); stroke-width: 1.4; }
 	svg.mmd .nd.store { fill: var(--code-bg); }
-	svg.mmd .ndl { stroke: var(--line); stroke-width: 1.2; }
 	svg.mmd text { fill: var(--fg); font-family: inherit; }
 	svg.mmd .el { fill: var(--muted); font-size: 11px; }
 	svg.mmd .elbg { fill: var(--bg); stroke: none; }
@@ -712,6 +711,13 @@
 		}
 		return lines;
 	}
+	// Two marks share one identity: the band over the words and the thread to the card.
+	function markQid(id, cls, on) {
+		hlLayer.querySelectorAll('.hl[data-qid="' + id + '"]').forEach(d => d.classList.toggle(cls, on));
+		eachThread('path[data-qid="' + id + '"]', d => d.classList.toggle(cls, on));
+	}
+	// Bands first, then card geometry, then the threads that connect the two.
+	function repaintAll() { paintHl(); layoutRail(); paintLinks(); }
 	function paintHl() {
 		// Collect every band before touching the DOM: one layout write, no thrash.
 		const frag = document.createDocumentFragment();
@@ -759,13 +765,11 @@
 		const m = mainEl.getBoundingClientRect();
 		const toc = document.getElementById('toc');
 		const tocEdge = toc && getComputedStyle(toc).display !== 'none' ? toc.getBoundingClientRect().right : 0;
-		const leftRoom = m.left - tocEdge - 44;
-		const rightRoom = innerWidth - m.right - 40;
+		const leftRoom = Math.min(320, m.left - tocEdge - 44);
+		const rightRoom = Math.min(320, innerWidth - m.right - 40);
 		return {
-			left: leftRoom >= 240
-				? { x: m.left - 24 - Math.min(320, leftRoom), width: Math.min(320, leftRoom) } : null,
-			right: rightRoom >= 240
-				? { x: m.right + 24, width: Math.min(320, rightRoom) } : null,
+			left: leftRoom >= 240 ? { x: m.left - 24 - leftRoom, width: leftRoom } : null,
+			right: rightRoom >= 240 ? { x: m.right + 24, width: rightRoom } : null,
 		};
 	}
 	function setDir(card, dir) {
@@ -776,12 +780,8 @@
 			const hook = document.createElement('span');
 			hook.className = 'hook';
 			const id = card.id.slice(3);
-			const mark = on => {
-				hlLayer.querySelectorAll('.hl[data-qid="' + id + '"]').forEach(h => h.classList.toggle('strong', on));
-				eachThread('path[data-qid="' + id + '"]', p => p.classList.toggle('strong', on));
-			};
-			hook.addEventListener('mouseenter', () => mark(true));
-			hook.addEventListener('mouseleave', () => mark(false));
+			hook.addEventListener('mouseenter', () => markQid(id, 'strong', true));
+			hook.addEventListener('mouseleave', () => markQid(id, 'strong', false));
 			hook.addEventListener('click', () => {
 				const band = hlLayer.querySelector('.hl[data-qid="' + id + '"]');
 				if (band) scrollTo({ top: parseFloat(band.style.top) - innerHeight / 2, behavior: 'smooth' });
@@ -831,8 +831,8 @@
 		const rooms = sideRooms();
 		const all = [...document.querySelectorAll('.qa')];
 		all.forEach(c => placeCard(c, rooms));
-		const cards = all.filter(c => cardKind(c) === 'anchored');
 		if (!rooms.left && !rooms.right) return;
+		const cards = all.filter(c => cardKind(c) === 'anchored');
 		const anchored = cards.map(card => {
 			const range = askedRanges.get(card.id.slice(3));
 			let y = null;
@@ -862,10 +862,12 @@
 	}
 	function paintLinks() {
 		const doc = document.documentElement;
+		const mainR = mainEl.getBoundingClientRect();
+		const frags = new Map();
 		for (const layer of linkLayers) {
 			layer.setAttribute('width', doc.scrollWidth);
 			layer.setAttribute('height', doc.scrollHeight);
-			layer.replaceChildren(layer.querySelector('defs'));
+			frags.set(layer, document.createDocumentFragment());
 		}
 		for (const [id, range] of askedRanges) {
 			const card = document.getElementById('qa-' + id);
@@ -899,7 +901,6 @@
 			} else {
 				// far apart: one smooth sweep whose control points sit in the gutter,
 				// so it leaves and arrives horizontally and never corners
-				const mainR = mainEl.getBoundingClientRect();
 				const gutter = cardLeftOfText
 					? Math.max(to.x + 20, Math.min(from.x - 20, mainR.left + scrollX - 22))
 					: Math.min(to.x - 20, Math.max(from.x + 20, mainR.right + scrollX + 22));
@@ -917,14 +918,15 @@
 			// a mark inside a block would be hidden by that block's panel
 			let host = range.commonAncestorContainer;
 			if (host && host.nodeType !== 1) host = host.parentElement;
-			(host && host.closest && host.closest('.blk') ? linkOver : linkLayer).append(g);
+			frags.get(host && host.closest && host.closest('.blk') ? linkOver : linkLayer).append(g);
 		}
+		for (const layer of linkLayers) layer.replaceChildren(layer.querySelector('defs'), frags.get(layer));
 	}
 
 	let layoutRaf = null;
 	window.addEventListener('resize', () => {
 		if (layoutRaf) return;
-		layoutRaf = requestAnimationFrame(() => { layoutRaf = null; paintHl(); layoutRail(); paintLinks(); });
+		layoutRaf = requestAnimationFrame(() => { layoutRaf = null; repaintAll(); });
 	});
 
 	function hideAsk() {
@@ -1060,7 +1062,7 @@
 	}
 	function submitQuestion(rec) {
 		upsertCard(rec);
-		layoutRail();
+		repaintAll();
 		fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) })
 			.then(r => { if (!r.ok) throw 0; startPolling(); })
 			.catch(() => setStatus(rec.id, 'failed to send, is serve.py still running?'));
@@ -1072,8 +1074,6 @@
 		if (quote && quote.range) askedRanges.set(id, quote.range);
 		askingRange = null;
 		submitQuestion({ id, stop, selection: quote ? quote.text : '', question, parent, via, block, part });
-		paintHl();
-		paintLinks();
 	}
 
 	askInput.addEventListener('keydown', e => {
@@ -1106,15 +1106,19 @@
 	function jsonBlock(raw) {
 		return '<pre><code>' + tintJson(esc(raw)) + '</code></pre>';
 	}
-	function chipify(t) {
-		// {file.go:139} in any answer becomes a real chip, using the href bases the
-		// page's own anchors already carry. Unknown files stay plain code.
+	// Editor href prefixes, keyed by basename, taken from the anchors the page already has.
+	function pathBases() {
 		const base = new Map();
 		document.querySelectorAll('a.path[href]').forEach(a => {
 			const href = a.getAttribute('href');
 			const m = href.match(/\/([^/]+):(\d+)$/);
 			if (m) base.set(m[1], href.slice(0, href.length - m[2].length - 1));
 		});
+		return base;
+	}
+	function chipify(t) {
+		// {file.go:139} in any answer becomes a real chip. Unknown files stay plain code.
+		const base = pathBases();
 		return t.replace(/\{([\w.\-]+):(\d+)\}/g, (m, f, l) => base.has(f)
 			? '<a class="path" href="' + base.get(f) + ':' + l + '">' + f + ':' + l + '</a>'
 			: '<code>' + f + ':' + l + '</code>');
@@ -1207,18 +1211,12 @@
 			card.className = q.parent ? 'qa reply' : 'qa';
 			card.id = 'qa-' + q.id;
 			card.dataset.via = q.via || '';
-			card.addEventListener('mouseenter', () => {
-				hlLayer.querySelectorAll('.hl[data-qid="' + q.id + '"]').forEach(d => d.classList.add('lit'));
-				eachThread('path[data-qid="' + q.id + '"]', d => d.classList.add('lit'));
-			});
-			card.addEventListener('mouseleave', () => {
-				hlLayer.querySelectorAll('.hl.lit').forEach(d => d.classList.remove('lit'));
-				eachThread('path.lit', d => d.classList.remove('lit'));
-			});
+			card.addEventListener('mouseenter', () => markQid(q.id, 'lit', true));
+			card.addEventListener('mouseleave', () => markQid(q.id, 'lit', false));
 			if (q.selection) {
 				const selP = document.createElement('p');
 				selP.className = 'qa-sel';
-				selP.textContent = q.selection.length > 220 ? q.selection.slice(0, 220) + '…' : q.selection;
+				selP.textContent = clip(q.selection, 220);
 				card.append(selP);
 			}
 			const qP = document.createElement('p');
@@ -1344,25 +1342,16 @@
 			}
 			changed = restoreRanges(d.questions) > 0 || changed;
 			if (pending) startPolling(); else stopPolling();
-			if (changed) { paintHl(); layoutRail(); paintLinks(); }
+			if (changed) repaintAll();
 		} catch (e) { /* server gone; leave the cards as they are */ }
 	}
 	// Any file:line chip left as plain text becomes a real editor link, using the
 	// paths the page's own anchors already carry. Covers blocks that build chips in JS.
-	let upgrading = false;
 	function upgradePathChips() {
-		if (upgrading) return;
-		const base = new Map();
-		document.querySelectorAll('a.path[href]').forEach(a => {
-			const href = a.getAttribute('href');
-			const m = href.match(/\/([^/]+):(\d+)$/);
-			if (m) base.set(m[1], href.slice(0, href.length - m[2].length - 1));
-		});
+		const base = pathBases();
 		if (!base.size) return;
 		const stale = [...document.querySelectorAll('span.path')]
 			.filter(s => /^[\w.\-]+:\d+$/.test(s.textContent.trim()) && base.has(s.textContent.trim().split(':')[0]));
-		if (!stale.length) return;
-		upgrading = true;
 		for (const s of stale) {
 			const [file, line] = s.textContent.trim().split(':');
 			const a = document.createElement('a');
@@ -1371,10 +1360,10 @@
 			a.textContent = s.textContent;
 			s.replaceWith(a);
 		}
-		upgrading = false;
 	}
-	new MutationObserver(() => { if (!upgrading) requestAnimationFrame(upgradePathChips); })
-		.observe(document.body, { childList: true, subtree: true });
+	// Scoped to where chips are actually built, so card layout writes do not re-fire it.
+	const chipSpy = new MutationObserver(() => requestAnimationFrame(upgradePathChips));
+	[mainEl, chatlog].forEach(el => el && chipSpy.observe(el, { childList: true, subtree: true }));
 	upgradePathChips();
 
 	// Live-block runtime. Each block draws its resting state server side and carries
@@ -1407,10 +1396,10 @@
 				log.innerHTML = ''; row.textContent = seed;
 				const steps = (lock.checked ? c.with : c.without) || [];
 				steps.forEach((s, i) => setTimeout(() => {
-					const text = typeof s === 'string' ? s : s.text;
-					const tone = typeof s === 'string' ? '' : (s.tone || '');
-					log.innerHTML += '<div class="' + (tone ? 'tone-' + tone : '') + '">' + text + '</div>';
-					if (typeof s === 'object' && s.row) row.textContent = JSON.stringify(s.row, null, 2);
+					const step = typeof s === 'string' ? { text: s } : s;
+					const tone = step.tone || '';
+					log.innerHTML += '<div class="' + (tone ? 'tone-' + tone : '') + '">' + step.text + '</div>';
+					if (step.row) row.textContent = JSON.stringify(step.row, null, 2);
 					if (i === steps.length - 1) { run.disabled = lock.disabled = false; run.textContent = 'run the race'; }
 				}, 550 * (i + 1)));
 			});
@@ -1514,11 +1503,12 @@
 				el.querySelectorAll('.q').forEach(x => x.classList.toggle('on', x === b));
 				const q = c.queries[+b.dataset.i];
 				star.setAttribute('x', q.star[0]); star.setAttribute('y', q.star[1]);
-				const scored = pts.map((p, i) => ({ p, s: (q.scores || [])[i] || 0 })).sort((a, b2) => b2.s - a.s);
+				const scored = pts.map((p, i) => ({ p, i, s: (q.scores || [])[i] || 0 })).sort((a, b2) => b2.s - a.s);
+				const near = scored.slice(0, q.top || 3);
 				pts.forEach(p => p.classList.remove('near'));
-				scored.slice(0, q.top || 3).forEach(x => x.p.classList.add('near'));
-				read.innerHTML = 'nearest for <b>' + q.label + '</b>: ' + scored.slice(0, q.top || 3)
-					.map(x => c.points[pts.indexOf(x.p)].label + ' <code>' + x.s.toFixed(2) + '</code>').join(' · ');
+				near.forEach(x => x.p.classList.add('near'));
+				read.innerHTML = 'nearest for <b>' + q.label + '</b>: ' + near
+					.map(x => c.points[x.i].label + ' <code>' + x.s.toFixed(2) + '</code>').join(' · ');
 			}));
 		},
 		angle(el, c) {
@@ -1529,24 +1519,24 @@
 			const gd = Math.acos(gate) * 180 / Math.PI, [gx, gy] = pt(gd, R);
 			el.querySelector('.gate').setAttribute('x2', gx);
 			el.querySelector('.gate').setAttribute('y2', gy);
+			const pv = el.querySelector('.pv'), pl = el.querySelector('.plab');
+			const arc = el.querySelector('.arc'), dl = el.querySelector('.deg'), zone = el.querySelector('.zone');
 			const gl = el.querySelector('.gatelab'), [lx, ly] = pt(gd, R + 4);
 			gl.setAttribute('x', lx - 12); gl.setAttribute('y', ly - 4);
 			gl.textContent = gate.toFixed(2) + ' gate';
 			const draw = () => {
 				const d = +rng.value, [vx, vy] = pt(d, R);
-				const pv = el.querySelector('.pv');
 				pv.setAttribute('x2', vx); pv.setAttribute('y2', vy);
-				const pl = el.querySelector('.plab'), [px, py] = pt(d, R + 12);
+				const [px, py] = pt(d, R + 12);
 				pl.setAttribute('x', px - 10); pl.setAttribute('y', py); pl.textContent = 'page';
 				const [ax, ay] = pt(0, 34), [bx, by] = pt(d, 34);
-				el.querySelector('.arc').setAttribute('d',
+				arc.setAttribute('d',
 					'M ' + OX + ' ' + OY + ' L ' + ax + ' ' + ay + ' A 34 34 0 0 0 ' + bx + ' ' + by + ' Z');
-				const dl = el.querySelector('.deg'), [dx, dy] = pt(d / 2, 48);
+				const [dx, dy] = pt(d / 2, 48);
 				dl.setAttribute('x', dx - 8); dl.setAttribute('y', dy + 3); dl.textContent = d + '°';
 				const cos = Math.cos(d * Math.PI / 180);
 				cv.textContent = cos.toFixed(2);
 				const z = (c.zones || []).find(z2 => cos > z2.above) || { text: 'pointing away, opposite meaning', tone: 'bad' };
-				const zone = el.querySelector('.zone');
 				zone.textContent = z.text; zone.className = 'zone tone-' + (z.tone || 'good');
 			};
 			rng.addEventListener('input', draw);

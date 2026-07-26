@@ -13,9 +13,9 @@ import re
 import sys
 from pathlib import Path
 
-from spec import BLOCK_TYPES, CHIP_RE, NAV_VERBS, expand_root, find_file, ref_parts
+from spec import (BLOCK_TYPES, CHIP_RE, EM_DASH, NAV_VERBS, expand_root, find_file, load,
+                  pattern_lines, read_lines, ref_parts, ref_str, save, walk_refs)
 
-EM_DASH = "—"
 
 
 class Report:
@@ -42,8 +42,9 @@ class Report:
 
 def check_ref(rep: Report, repo: dict, where: str, ref) -> None:
     """A ref resolves to a real file, and its symbol really sits on that line."""
-    if isinstance(ref, str):
-        ref = {"path": ref_parts(ref)[0], "line": ref_parts(ref)[1]}
+    if not isinstance(ref, dict):
+        path, line = ref_parts(ref_str(ref))
+        ref = {"path": path, "line": line}
     root = expand_root(repo["root"])
     hit = find_file(root, ref["path"])
     if not hit:
@@ -53,7 +54,7 @@ def check_ref(rep: Report, repo: dict, where: str, ref) -> None:
     symbol = ref.get("symbol")
     pattern = ref.get("pattern")
     try:
-        lines = hit.read_text(encoding="utf-8", errors="replace").splitlines()
+        lines = read_lines(hit)
     except OSError as e:
         rep.error(where, f"cannot read {hit}: {e}")
         return
@@ -65,11 +66,10 @@ def check_ref(rep: Report, repo: dict, where: str, ref) -> None:
     # often a call site, while the pattern names the definition.
     if pattern:
         try:
-            rx = re.compile(pattern)
+            hits = pattern_lines(lines, pattern)
         except re.error as e:
             rep.error(where, f"bad pattern {pattern!r}: {e}")
             return
-        hits = [i + 1 for i, l in enumerate(lines) if rx.search(l)]
         if not hits:
             rep.error(where, f"pattern {pattern!r} matches nothing in {ref['path']}")
         elif line and line not in hits:
@@ -135,8 +135,6 @@ def validate(spec: dict) -> Report:
                 rep.error(sid, "stop has no headline")
             else:
                 check_claim(rep, repo, f"{sid}.headline", head)
-            if stop.get("ref"):
-                check_ref(rep, repo, f"{sid}.ref", stop["ref"])
             block = stop.get("block")
             if block:
                 btype = block.get("type")
@@ -155,6 +153,9 @@ def validate(spec: dict) -> Report:
                 for pi2, proof in enumerate(think.get("proofs") or []):
                     check_text(rep, repo, f"{twhere}.proofs[{pi2}]", proof)
 
+    for where, container, key in walk_refs(spec):
+        check_ref(rep, repo, where, container[key])
+
     for qi, q in enumerate(spec.get("discussion") or []):
         for entry in [q] + list(q.get("replies") or []):
             if entry.get("answer"):
@@ -165,24 +166,22 @@ def validate(spec: dict) -> Report:
 def resync(spec: dict) -> list[str]:
     """Move every ref that carries a pattern back onto the line the pattern finds.
     Code moves; a walkthrough should follow it rather than lie about it."""
-    from spec import expand_root, find_file
-
     root = expand_root(spec["repo"]["root"])
     moved = []
-    for stage in spec.get("stages") or []:
-        for stop in stage.get("stops") or []:
-            ref = stop.get("ref")
-            if not isinstance(ref, dict) or not ref.get("pattern"):
-                continue
-            hit = find_file(root, ref["path"])
-            if not hit:
-                continue
-            rx = re.compile(ref["pattern"])
-            lines = hit.read_text(encoding="utf-8", errors="replace").splitlines()
-            found = next((i + 1 for i, l in enumerate(lines) if rx.search(l)), None)
-            if found and found != ref.get("line"):
-                moved.append(f"{stop['id']}: {ref['path']} {ref.get('line')} -> {found}")
-                ref["line"] = found
+    for where, container, key in walk_refs(spec):
+        ref = container[key]
+        if not isinstance(ref, dict) or not ref.get("pattern"):
+            continue
+        hit = find_file(root, ref["path"])
+        if not hit:
+            continue
+        try:
+            hits = pattern_lines(read_lines(hit), ref["pattern"])
+        except (re.error, OSError):
+            continue
+        if hits and hits[0] != ref.get("line"):
+            moved.append(f"{where}: {ref['path']} {ref.get('line')} -> {hits[0]}")
+            ref["line"] = hits[0]
     return moved
 
 
@@ -192,8 +191,6 @@ def main() -> int:
     if not args:
         print(__doc__)
         return 2
-    from spec import load, save
-
     path = Path(args[0])
     spec = load(path)
     if fix:
