@@ -47,7 +47,7 @@ class Node:
         roughly twice the room a box does. Give every shape air where there is space."""
         text_w = len(self.label) * CHAR_W + PAD_X * 2
         if self.shape == "diamond":
-            self.w, self.h = max(150.0, text_w * 1.75), 66.0
+            self.w, self.h = max(150.0, text_w * 1.32), 78.0
         elif self.shape == "store":
             self.w, self.h = max(96.0, text_w), 52.0
         else:
@@ -147,13 +147,29 @@ def layout(direction: str, nodes: dict, edges: list) -> tuple[float, float]:
     return width_needed, max(heights) + 40
 
 
+def rounded(points: list, r: float) -> str:
+    """A closed polygon with its corners eased, so a diamond does not stab."""
+    def toward(a, b, dist):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = (dx * dx + dy * dy) ** 0.5 or 1
+        k = min(dist, length / 2) / length
+        return (a[0] + dx * k, a[1] + dy * k)
+
+    parts = []
+    n = len(points)
+    for i, v in enumerate(points):
+        prev, nxt = points[(i - 1) % n], points[(i + 1) % n]
+        p1, p2 = toward(v, prev, r), toward(v, nxt, r)
+        parts.append(f"{'M' if i == 0 else 'L'} {p1[0]:.1f} {p1[1]:.1f} Q {v[0]:.1f} {v[1]:.1f} {p2[0]:.1f} {p2[1]:.1f}")
+    return " ".join(parts) + " Z"
+
+
 def shape_svg(n: Node, href: str = "") -> str:
     x, y, w, h = n.x, n.y, n.w, n.h
     label = escape(n.label)
     text = f'<text x="{x + w / 2:.1f}" y="{y + h / 2 + 4:.1f}" text-anchor="middle">{label}</text>'
     if n.shape == "diamond":
-        pts = f"{x + w / 2:.1f},{y:.1f} {x + w:.1f},{y + h / 2:.1f} {x + w / 2:.1f},{y + h:.1f} {x:.1f},{y + h / 2:.1f}"
-        return f'<polygon class="nd" points="{pts}"/>{text}'
+        return f'<path class="nd" d="{rounded([(x + w / 2, y), (x + w, y + h / 2), (x + w / 2, y + h), (x, y + h / 2)], 12)}"/>{text}'
     if n.shape == "store":
         # a real cylinder: straight sides, arc across the bottom, full ellipse on top
         ry, cx = 7.0, x + w / 2
@@ -177,12 +193,12 @@ def wrap(svg: str, href: str, key: str = "") -> str:
     return f'<a class="nd-a" data-key="{escape(key, quote=True)}" href="{escape(href, quote=True)}">{svg}</a>' 
 
 
-def edge_svg(a: Node, b: Node, label: str, vertical: bool) -> str:
+def edge_svg(a: Node, b: Node, label: str, vertical: bool, right_edge: float = 0.0) -> str:
     if vertical:
         x1, y1 = a.x + a.w / 2, a.y + a.h
         x2, y2 = b.x + b.w / 2, b.y
         if b.rank <= a.rank:  # a loop back up the page, routed around the side
-            side = max(a.x + a.w, b.x + b.w) + 26
+            side = max(right_edge, a.x + a.w, b.x + b.w) + 26
             path = f"M {a.x + a.w:.1f} {a.y + a.h / 2:.1f} H {side:.1f} V {b.y + b.h / 2:.1f} H {b.x + b.w:.1f}"
             mid = (side + 6, (a.y + b.y) / 2)
         else:
@@ -210,13 +226,16 @@ def to_svg(src: str, hrefs: dict | None = None) -> str:
     if not nodes:
         return ""
     w, h = layout(direction, nodes, edges)
+    if any(nodes[b].rank <= nodes[a].rank for a, b, _ in edges):
+        w += 44
     vertical = direction in ("TD", "TB", "BT")
     body = [
         '<defs><marker id="mmar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" '
         'orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"/></marker></defs>'
     ]
+    right_edge = max((n.x + n.w for n in nodes.values()), default=0.0)
     for a, b, label in edges:
-        body.append(edge_svg(nodes[a], nodes[b], label, vertical))
+        body.append(edge_svg(nodes[a], nodes[b], label, vertical, right_edge))
     for n in nodes.values():
         body.append(wrap(shape_svg(n), hrefs.get(n.key, ""), n.key))
     return (

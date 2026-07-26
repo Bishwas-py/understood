@@ -507,9 +507,9 @@
 	/* A thread from a mark to its card. Drawn behind the text at low opacity,
 	   so it reads as a hint rather than a line you have to look past. */
 	#link-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: -1; overflow: visible; }
-	#link-layer path { fill: none; stroke: var(--accent); stroke-width: 1.1; opacity: .22;
-		transition: opacity .2s, stroke-width .2s; }
-	#link-layer path.lit { opacity: .75; stroke-width: 1.6; }
+	#link-layer path { fill: none; stroke: var(--accent); stroke-width: 1.1; opacity: .12;
+		pointer-events: stroke; transition: opacity .2s, stroke-width .2s; }
+	#link-layer path:hover, #link-layer path.lit { opacity: .55; stroke-width: 1.5; }
 	#hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 	#hl-layer .hl { position: absolute; border-radius: 2px; }
 	#hl-layer .hl.asking { background: var(--hl-asking); }
@@ -831,11 +831,24 @@
 				x: (cardLeftOfText ? cr.right : cr.left) + scrollX,
 				y: cr.top + scrollY + Math.min(22, cr.height / 2),
 			};
-			const dx = Math.max(28, Math.abs(to.x - from.x) * 0.45);
-			const c1 = { x: from.x + (cardLeftOfText ? -dx : dx), y: from.y };
-			const c2 = { x: to.x + (cardLeftOfText ? dx : -dx), y: to.y };
 			const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-			p.setAttribute('d', `M ${from.x} ${from.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y}`);
+			const dy = to.y - from.y;
+			if (Math.abs(dy) < 14) {
+				p.setAttribute('d', `M ${from.x} ${from.y} L ${to.x} ${to.y}`);
+			} else {
+				const mainR = mainEl.getBoundingClientRect();
+				const gutter = cardLeftOfText
+					? Math.max(to.x + 16, Math.min(from.x - 16, mainR.left + scrollX - 16))
+					: Math.min(to.x - 16, Math.max(from.x + 16, mainR.right + scrollX + 16));
+				const r = Math.min(12, Math.abs(dy) / 2, Math.abs(gutter - from.x), Math.abs(to.x - gutter));
+				const sy = dy > 0 ? 1 : -1;
+				const sx = cardLeftOfText ? -1 : 1;
+				p.setAttribute('d',
+					`M ${from.x} ${from.y} H ${gutter - sx * r}` +
+					` Q ${gutter} ${from.y} ${gutter} ${from.y + sy * r}` +
+					` V ${to.y - sy * r}` +
+					` Q ${gutter} ${to.y} ${gutter + sx * r} ${to.y} H ${to.x}`);
+			}
 			p.dataset.qid = id;
 			linkLayer.append(p);
 		}

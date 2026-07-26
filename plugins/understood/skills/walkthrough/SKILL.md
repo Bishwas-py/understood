@@ -63,6 +63,8 @@ Beauty is not decoration here. A page the reader wants to look at is a page they
 
 **Use the space you have.** If there is room, take it: wider nodes, more padding, longer line length. Crowded output reads as unfinished. A diamond only reaches full width at its middle, so text inside one needs roughly twice the room a box does; a cylinder needs height for its rim. Measure the shape, not the string.
 
+**Prefer the straight line, then the gutter.** A connector between two things that already sit level is a straight line; anything else leaves the text, runs down the margin beside it, and comes back in. A curve that sweeps across a paragraph is prettier in isolation and worse on the page. The same rule governs a chart's return edge: route it outside the widest node, not through whichever one happens to be in the way.
+
 **Nothing crosses anything.** A connector line must not run through a label, an arrow must not pass under words, a chip must not collide with the text beside it. When two things must share a spot, give the upper one a plate in the page background.
 
 **Every layer knows its depth.** A highlight paints over text, a connector thread paints under it, a card floats beside it. Anything that would obscure reading belongs behind the text at low opacity, and lifts only on hover.
