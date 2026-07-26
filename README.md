@@ -12,6 +12,20 @@ Install as a plugin (see below), not by symlinking individual skills.
 
 The first two rewrite text the user already has. `rundown` is the one pattern that reads a codebase, because a rundown is only worth anything if every line number in it is real.
 
+### What keeps a rundown honest
+
+**Every ref is walked, not just the visible ones.** The chip beside a headline, the ref a block prints in its head, every hop of a chain, every node of a flow chart: one walk feeds validation, repair, and rendering alike, so they cannot disagree about what a ref is.
+
+**A pattern outranks a line number.** A ref carries the regex that finds its definition, so when code moves, `--fix` puts the ref back on the line the pattern finds and writes it into the spec. Drift is repaired rather than reported.
+
+**Every block declares its own shape.** `rundown blocks <name>` prints what a block takes and a config to paste, and the validator holds a config to that same declaration, so a missing key fails the build and a mistyped one is named instead of rendering a control that quietly does nothing.
+
+**A rewording carries its own mark.** When an edit rewrites text a reader asked about, the answer says what that text became. The mark lands on the new words, the thread comes back, and the card shows the old quote struck through with what it became beneath it. Every build names the quotes it orphaned, so a rename cannot pass in silence.
+
+**One origin, every rundown.** One process serves the whole store: `/` indexes the rundowns in this repo, `/<slug>/` is a page, and `/<slug>/qa.json` and `/<slug>/ask` are that page's conversation. Ports stop drifting, so the browser's editor-link approval is given once and never asked for again.
+
+**The store is the undo.** Every write snapshots the spec first and keeps the last twenty, so reversing an edit is copying one back and rebuilding. The folder is added to `.git/info/exclude` on first use, never to the project's tracked `.gitignore`.
+
 Future patterns get their own subdirectory under `plugins/understood/skills/`, following the same shape: one clear job, scoped by request, no output beyond what was asked for, and reuse the caveman-english voice rather than redefining wording rules.
 
 ## Layout
@@ -30,16 +44,16 @@ understood/
         caveman-english/SKILL.md
         forward-arrow/SKILL.md
         rundown/SKILL.md
-        rundown/assets/spec.py            shared conventions: chips, refs, escaping
+        rundown/assets/spec.py            chips, refs, escaping, and every block's shape
         rundown/assets/validate.py        refuses a lie before it ships
         rundown/assets/render.py          spec -> one self-contained page
         rundown/assets/mermaid.py         flowcharts drawn to svg at build time
         rundown/assets/template.html      the page shell and its runtime
-        rundown/assets/example.json       a complete working spec
         rundown/assets/cli.py             the rundown command, and every block's shape
         rundown/assets/store.py           one folder per rundown, history, snapshots
         rundown/assets/serve.py           one origin for every rundown, index, /ask
-        rundown/assets/wait_question.py   the wake loop
+        rundown/assets/wait_question.py   the wake loop, and rebinding a renamed mark
+        rundown/assets/example.json       a complete working spec
         rundown/assets/editor.py          cursor or vscode probe
 ```
 
@@ -62,9 +76,14 @@ rundown list                  every rundown in this repo
 rundown serve                 all of them on one origin, index at /
 rundown serve <slug> --open   the same server, opened at that one
 rundown build <slug> --fix    validate, resync drifted refs, render
+rundown save <slug> spec.json snapshot the old spec, write the new one, build
 rundown verify <slug>         validate only, write nothing
+rundown blocks                every block, and the keys each one needs
+rundown blocks <name>         one block's shape, and a config to paste
+rundown blocks --demo         build a page carrying all fourteen, operable
 rundown rm <slug> --force     delete one and its conversation
 rundown upgrade               pull the latest source, update the plugin
+rundown uninstall             remove the command and the plugin
 rundown doctor                versions, store location, what is missing
 ```
 
