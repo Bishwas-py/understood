@@ -325,24 +325,40 @@
 	svg.mmd .nd-a:hover text { fill: var(--accent); }
 	.blk.flow .cap { margin: .6rem 0 0; color: var(--muted); font-size: .85rem; text-align: center; }
 	/* Claim checks, generated on demand at the end. */
-	#viva .turn { padding: .5rem 0; border-bottom: 1px solid var(--line); }
-	#viva .turn:last-child { border-bottom: 0; }
-	#viva .q { font-weight: 600; }
-	#viva .said { color: var(--muted); border-left: 2px solid var(--line); padding-left: .6rem; margin: .35rem 0 0; }
-	#viva .mark { margin: .35rem 0 0; }
-	#viva .mark.held { color: var(--ba-good-fg); }
-	#viva .mark.thin { color: var(--ba-bad-fg); }
-	#viva .verdict-panel { margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--line); }
-	#viva .verdict-panel h3 { margin: 0 0 .3rem; font-size: .95rem; }
-	#viva-ask { padding: .6rem .9rem .9rem; border-top: 1px solid var(--line); }
-	#viva-ask textarea {
+	.viva-deck { padding: .7rem .9rem .9rem; border-top: 1px solid var(--line); }
+	.viva-nav { display: flex; align-items: center; gap: .5rem; }
+	.viva-nav .dots { display: flex; gap: 5px; flex-wrap: wrap; }
+	.viva-nav .dot {
+		min-width: 22px; height: 22px; padding: 0 4px; border-radius: 6px;
+		border: 1px solid var(--line); background: transparent; color: var(--muted);
+		font: inherit; font-size: .74rem; font-variant-numeric: tabular-nums; cursor: pointer;
+	}
+	.viva-nav .dot:hover { border-color: var(--accent); color: var(--fg); }
+	.viva-nav .dot.done { background: var(--accent); border-color: var(--accent); color: #fff; }
+	.viva-nav .dot.at { box-shadow: 0 0 0 3px var(--hl-asked); color: var(--fg); }
+	.viva-nav .dot.done.at { color: #fff; }
+	.viva-at { margin-left: auto; color: var(--muted); font-size: .85rem; }
+	.viva-q { font-weight: 600; margin: .7rem 0 .5rem; }
+	.viva-deck textarea {
 		width: 100%; background: var(--code-bg); color: var(--fg); resize: vertical;
 		border: 1px solid var(--line); border-radius: 9px; padding: .5rem .6rem;
 		font: inherit; font-size: .92rem;
 	}
-	#viva-ask textarea:focus { outline: none; border-color: var(--accent); }
+	.viva-deck textarea:focus { outline: none; border-color: var(--accent); }
 	.viva-row { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; }
 	#viva-count { font-weight: 600; color: var(--accent); margin-left: auto; }
+	#viva .round { padding: .6rem 0; border-bottom: 1px solid var(--line); }
+	#viva .round:last-child { border-bottom: 0; }
+	#viva .round > summary { cursor: pointer; font-weight: 600; list-style: none; }
+	#viva .round > summary::-webkit-details-marker { display: none; }
+	#viva .round > summary::before { content: "\25B8 "; color: var(--muted); }
+	#viva .round[open] > summary::before { content: "\25BE "; }
+	#viva .score { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+	#viva .score.low { color: var(--ba-bad-fg); }
+	#viva .qa { position: static; width: auto; padding: .5rem 0 0; border: 0; background: none; box-shadow: none; }
+	#viva .past-q { font-weight: 600; margin: .6rem 0 .2rem; }
+	#viva .past-a { color: var(--muted); border-left: 2px solid var(--line); padding-left: .6rem; margin: 0; }
+	#viva .past-a.blank { font-style: italic; }
 	/* Before the checks exist there is nothing to frame: the button stands alone. */
 	.blk.bare.empty { border: 0; background: none; box-shadow: none; }
 	.blk.bare.empty .blk-head { border: 0; background: none; padding-left: 0; }
@@ -1130,10 +1146,12 @@
 	function jsonBlock(raw) {
 		return '<pre><code>' + tintJson(esc(raw)) + '</code></pre>';
 	}
-	// Editor href prefixes, keyed by basename, taken from the anchors the page already has.
+	// Editor href prefixes, keyed by basename, taken from the anchors the page
+	// already has. Every editor anchor counts, including the ones a flow chart
+	// puts on its nodes, or a file that only appears in a chart is unlinkable.
 	function pathBases() {
 		const base = new Map();
-		document.querySelectorAll('a.path[href]').forEach(a => {
+		document.querySelectorAll('a[href^="cursor://"], a[href^="vscode://"]').forEach(a => {
 			const href = a.getAttribute('href');
 			const m = href.match(/\/([^/]+):(\d+)$/);
 			if (m) base.set(m[1], href.slice(0, href.length - m[2].length - 1));
@@ -1150,6 +1168,7 @@
 	function inline(t) {
 		return chipify(t)
 			.replace(/\[([^\]]+)\]\(((?:cursor|vscode|https?):[^)\s]+)\)/g, '<a href="$2">$1</a>')
+			.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
 			.replace(/`([^`]+)`/g, (m, code) => {
 				const pretty = code.length > 40 ? prettyJson(unesc(code)) : null;
 				return pretty ? jsonBlock(pretty) : '<code>' + code + '</code>';
@@ -1599,123 +1618,190 @@
 		try { fn(el, cfg); } catch (e) { console.error('block ' + kind, e); }
 	});
 
-	// The questions: a reviewer asks one at a time, the reader answers, and the
-	// last turn is a verdict. Every turn is a record in the same two files the
-	// rest of the page uses, so a round survives a reload and an old round can
-	// be read back beside the new one.
+	// The questions: one press asks the session for a whole deck, the reader
+	// works through it at their own pace, and the answers go back in a single
+	// record to be scored. Two round trips per round, not one per question.
 	const viva = document.getElementById('viva-blk');
 	if (viva) {
 		const startBtn = document.getElementById('viva-start');
-		const body = document.getElementById('viva-body');
-		const askBox = document.getElementById('viva-ask');
+		const past = document.getElementById('viva-past');
+		const deck = document.getElementById('viva-deck');
 		const input = document.getElementById('viva-input');
+		const qText = document.getElementById('viva-q');
+		const dots = document.getElementById('viva-dots');
+		const atLabel = document.getElementById('viva-at');
+		const left = document.getElementById('viva-left');
+		const scoreBtn = document.getElementById('viva-score');
 		const count = document.getElementById('viva-count');
-		const drawn = new Set();
-		let waitingOn = null;
+		const slug = location.pathname.split('/').filter(Boolean)[0] || 'rundown';
+		let round = null, at = 0, sig = '';
 
-		const el = (cls, text) => {
-			const n = document.createElement('div');
-			n.className = cls;
-			if (text !== undefined) n.innerHTML = text;
-			return n;
+		const keep = () => {
+			if (!round) return;
+			try { localStorage.setItem('rundown:' + slug + ':' + round.id, JSON.stringify(round.said)); } catch (e) {}
 		};
-		const roundHead = n => {
-			const h = el('turn round', '<b>round ' + n + '</b>');
-			h.querySelector('b').style.color = 'var(--accent)';
-			return h;
+		const recall = id => {
+			try { return JSON.parse(localStorage.getItem('rundown:' + slug + ':' + id) || '[]'); } catch (e) { return []; }
 		};
-		// "ask:" is the next question, "verdict:" ends the round. Everything else
-		// on the way is the reviewer marking what was just said.
-		const readTurn = text => {
-			const ask = [], verdict = [], mark = [];
-			let done = false;
-			for (const line of String(text).split('\n')) {
-				const t = line.trim();
-				if (/^ask:/i.test(t)) { ask.push(t.slice(4).trim()); continue; }
-				if (/^verdict:/i.test(t)) { done = true; verdict.push(t.slice(8).trim()); continue; }
-				(done ? verdict : mark).push(line);
+
+		// "ask:" lines are the deck. "score:" opens the verdict and carries the
+		// number, everything after it is what the reader got wrong.
+		const readDeck = text => String(text).split('\n')
+			.map(l => l.trim()).filter(l => /^ask:/i.test(l)).map(l => l.slice(4).trim());
+		const readScore = text => {
+			const lines = String(text).split('\n');
+			let pct = null, body = [];
+			for (const line of lines) {
+				const m = line.trim().match(/^score:\s*(\d{1,3})/i);
+				if (m && pct === null) { pct = Math.min(100, +m[1]); continue; }
+				body.push(line);
 			}
-			return { ask: ask.join(' '), verdict: verdict.join('\n').trim(), mark: mark.join('\n').trim(), done };
+			return { pct, body: body.join('\n').trim() };
 		};
-		const setAsking = on => {
-			askBox.hidden = !on;
-			if (on) input.focus();
+
+		const showAt = i => {
+			if (!round) return;
+			at = Math.max(0, Math.min(round.questions.length - 1, i));
+			qText.textContent = round.questions[at];
+			input.value = round.said[at] || '';
+			atLabel.textContent = (at + 1) + ' of ' + round.questions.length;
+			dots.replaceChildren(...round.questions.map((_, j) => {
+				const d = document.createElement('button');
+				d.type = 'button';
+				d.className = 'dot' + (round.said[j] ? ' done' : '') + (j === at ? ' at' : '');
+				d.textContent = j + 1;
+				d.title = round.said[j] ? 'answered' : 'not answered yet';
+				d.addEventListener('click', () => { stash(); showAt(j); });
+				return d;
+			}));
+			refreshMeta();
 		};
-		const setBusy = on => {
-			startBtn.disabled = on;
-			document.getElementById('viva-send').disabled = on;
-			document.getElementById('viva-stop').disabled = on;
+		// The number for the question being typed into fills as it is typed, so
+		// redrawing the whole slide (and losing the caret) is not the price.
+		const refreshMeta = () => {
+			if (!round) return;
+			[...dots.children].forEach((d, j) => d.classList.toggle('done', !!round.said[j]));
+			const done = round.said.filter(Boolean).length;
+			left.textContent = done === round.questions.length
+				? 'all answered' : (round.questions.length - done) + ' left, score whenever you like';
+			count.textContent = done + ' of ' + round.questions.length + ' answered';
 		};
-		const send = text => {
-			const id = newId();
-			waitingOn = id;
-			setAsking(false);
-			setBusy(true);
-			submitQuestion({ id, stop: '', selection: '', parent: '', via: 'viva', question: text });
-			viva.classList.remove('empty');
-			body.append(el('turn thinking', '<span class="qa-status">thinking…</span>'));
+		const stash = () => {
+			if (!round) return;
+			round.said[at] = input.value.trim();
+			refreshMeta();
+			keep();
 		};
+
+		input.addEventListener('input', stash);
+		input.addEventListener('keydown', e => {
+			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); stash(); showAt(at + 1); }
+		});
+		document.getElementById('viva-prev').addEventListener('click', () => { stash(); showAt(at - 1); });
+		document.getElementById('viva-next').addEventListener('click', () => { stash(); showAt(at + 1); });
 
 		startBtn.addEventListener('click', () => {
-			startBtn.textContent = 'another round';
-			send('start a round of questions');
+			startBtn.disabled = true;
+			startBtn.textContent = 'writing the questions…';
+			viva.classList.remove('empty');
+			submitQuestion({
+				id: newId(), stop: '', selection: '', parent: '', via: 'viva',
+				question: 'write a round of questions for this page',
+			});
 		});
-		document.getElementById('viva-send').addEventListener('click', () => {
-			const text = input.value.trim();
-			if (!text) return;
-			input.value = '';
-			send(text);
-		});
-		document.getElementById('viva-stop').addEventListener('click', () => {
-			setAsking(false);
-			send('that is enough, give me the verdict');
-		});
-		input.addEventListener('keydown', e => {
-			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('viva-send').click(); }
+		scoreBtn.addEventListener('click', () => {
+			if (!round) return;
+			stash();
+			scoreBtn.disabled = true;
+			scoreBtn.textContent = 'marking…';
+			const sheet = round.questions
+				.map((q, i) => (i + 1) + '. ' + q + '\n   > ' + (round.said[i] || '(no answer)')).join('\n');
+			submitQuestion({
+				id: newId(), stop: '', selection: '', parent: round.id, via: 'viva',
+				question: 'score this round\n' + sheet,
+			});
 		});
 
-		// Rebuilt from the records, so reloading mid-round loses nothing and the
-		// rounds before this one stay on the page under their own headings.
+		// Rebuilt from the records, so a reload mid-deck loses nothing: the
+		// questions come back from the file and the answers from this browser.
 		window.__viva = (questions, answers) => {
-			let round = 0, asked = 0;
-			for (const q of questions) {
-				if (q.via !== 'viva') continue;
+			const mine = questions.filter(q => q.via === 'viva');
+			const next = mine.map(q => q.id + (answers[q.id] === undefined ? '' : '!')).join(',');
+			if (next === sig) return;
+			sig = next;
+
+			const rounds = [];
+			for (const q of mine) {
 				const answer = answers[q.id];
-				const opener = /^start a round/i.test(q.question);
-				if (opener) round++;
-				if (!drawn.has(q.id)) {
-					drawn.add(q.id);
-					viva.classList.remove('empty');
-					body.querySelectorAll('.turn.thinking').forEach(n => n.remove());
-					if (opener) body.append(roundHead(round));
-					else body.append(el('turn said', esc(q.question)));
-				}
-				if (answer === undefined) {
-					if (!body.querySelector('.turn.thinking')) {
-						body.append(el('turn thinking', '<span class="qa-status">thinking…</span>'));
-					}
-					waitingOn = q.id;
-					setAsking(false);
-					setBusy(true);
+				if (q.parent) {
+					const owner = rounds.find(r => r.id === q.parent);
+					if (owner) { owner.scoreId = q.id; owner.verdict = answer; }
 					continue;
 				}
-				if (!drawn.has(q.id + ':a')) {
-					drawn.add(q.id + ':a');
-					body.querySelectorAll('.turn.thinking').forEach(n => n.remove());
-					const turn = readTurn(answer);
-					if (turn.mark) body.append(el('turn mark', renderAnswer(turn.mark)));
-					if (turn.ask) body.append(el('turn q', inline(esc(turn.ask))));
-					if (turn.verdict) {
-						const panel = el('turn verdict-panel', '<h3>verdict</h3>' + renderAnswer(turn.verdict));
-						body.append(panel);
-					}
-				}
-				const turn = readTurn(answer);
-				if (turn.ask) { asked++; waitingOn = null; setBusy(false); setAsking(true); }
-				if (turn.done) { waitingOn = null; setBusy(false); setAsking(false); }
+				rounds.push({ id: q.id, deck: answer, questions: readDeck(answer || ''), said: recall(q.id) });
 			}
-			count.textContent = asked ? asked + (asked === 1 ? ' question' : ' questions') : '';
+			if (!rounds.length) return;
+			viva.classList.remove('empty');
+
+			past.replaceChildren();
+			for (const r of rounds.slice(0, -1)) past.append(roundBox(r, rounds.indexOf(r) + 1, false));
+			const last = rounds[rounds.length - 1];
+
+			if (last.verdict !== undefined) {
+				past.append(roundBox(last, rounds.length, true));
+				deck.hidden = true;
+				round = null;
+				startBtn.disabled = false;
+				startBtn.textContent = 'another round';
+				const { pct } = readScore(last.verdict);
+				count.textContent = pct === null ? 'scored' : pct + '% understood';
+				return;
+			}
+			if (!last.questions.length) {                 // the deck is still being written
+				deck.hidden = true;
+				startBtn.disabled = true;
+				startBtn.textContent = 'writing the questions…';
+				count.textContent = '';
+				return;
+			}
+			round = last;
+			round.said.length = round.questions.length;
+			deck.hidden = false;
+			startBtn.disabled = true;
+			startBtn.textContent = 'take the questions';
+			scoreBtn.disabled = last.scoreId !== undefined;
+			scoreBtn.textContent = last.scoreId !== undefined ? 'marking…' : 'score me';
+			showAt(at);
 		};
+
+		function roundBox(r, n, open) {
+			const box = document.createElement('details');
+			box.className = 'round';
+			if (open) box.open = true;
+			const { pct, body } = r.verdict ? readScore(r.verdict) : { pct: null, body: '' };
+			const head = document.createElement('summary');
+			head.textContent = 'round ' + n + (pct === null ? ' (not scored)' : ', ' + pct + '% understood');
+			box.append(head);
+			if (r.verdict) {
+				const score = document.createElement('div');
+				score.className = 'score' + (pct !== null && pct < 60 ? ' low' : '');
+				score.textContent = pct === null ? '' : pct + '%';
+				box.append(score);
+				const v = document.createElement('div');
+				v.innerHTML = renderAnswer(body);
+				box.append(v);
+			}
+			r.questions.forEach((q, i) => {
+				const qp = document.createElement('p');
+				qp.className = 'past-q';
+				qp.textContent = (i + 1) + '. ' + q;
+				const ap = document.createElement('p');
+				ap.className = 'past-a' + (r.said[i] ? '' : ' blank');
+				ap.textContent = r.said[i] || 'no answer';
+				box.append(qp, ap);
+			});
+			return box;
+		}
 	}
 
 	function startPolling() { if (!pollTimer) pollTimer = setInterval(syncQA, 2000); }

@@ -15,7 +15,7 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 
 - a pipeline block first: the whole journey in arrow lines, one real record from an actual run riding along, every line stamped with where it lives (`#page`, `#server`, ...)
 - stages down the middle ordered by the data's journey, each stop a place to put the cursor
-- a round of questions at the end: a senior reviewer asks one at a time, the reader types the answer, and the last turn is a verdict on what they actually hold
+- a round of questions at the end: a dozen from a senior reviewer on a slider, the reader answers what they can, and the score that comes back says how much of this they could defend under questioning
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
 - every path and every bare line number is a link that opens the editor at that exact line
 - live blocks inside the stops: operable components (a switch, a dial, a chain) whose control surface is a code reference; understanding is operated, not read
@@ -197,25 +197,32 @@ All of these classes (`io`, `pipe`, `rec`, `where`, `tag`, `ba`) ship in the tem
 
 ## The questions at the end
 
-The page closes with a round of questions, not a summary. The reader presses **take the questions** when they have finished reading, and you become the senior reviewer on the other side of the call: you ask one question, they type an answer, you mark it and ask the next, and at the end you say plainly what they know and what would catch them out.
+The page closes with a round of questions, not a summary. The reader presses **take the questions** when they have finished reading, and you become the senior reviewer on the other side of the call: a dozen questions on a slider, they answer what they can, and you come back with a score and the mistakes behind it.
 
 Every turn travels the ask loop with `"via": "viva"`, so the whole round lives in the same two files as everything else. Rounds stack: a reader can take another one, and the earlier rounds stay on the page under their own headings.
 
-**Two markers drive it.** A line starting `ask:` is the next question. A line starting `verdict:` ends the round. Anything else in the answer is you marking what they just said, so a normal turn is one or two lines of marking followed by one `ask:`.
+**A round is two turns, not twenty.** The first record asks for the deck, and you answer with **ten to fifteen** questions, one `ask:` line each, nothing else:
 
 ```
-close, but the gate runs before any mapping is read, not after
+ask: a reference carries both a line number and a pattern. Which wins when they disagree, and what happens to the spec afterwards?
 ask: which line writes the not-found row, and why write it at all instead of omitting the field?
+ask: I say this whole gate is premature optimisation. Convince me.
 ```
 
-and the last turn:
+The reader works through them at their own pace, on a slider, answering whatever they can. Their answers come back in one record as a numbered sheet, each question followed by `> their answer`. Score it in one reply:
 
 ```
-verdict: 4 of 6 held
-- solid on the gate, you reached for {formmap.go:50} without being pointed at it
-- thin on concurrency: you would get caught on why the lock sits at row level and not on the filing
-- unasked but worth knowing: the retry path, which this page never opens
+score: 68
+- **q2, wrong.** the row is written by {runner.go:226}, not the settle pass. You put it a stage too early, which matters because it is the stage that decides what a missing field means
+- **q5, half.** you named the lock but not what it protects, so a reviewer asking "why row level" would still land
+- **q7, dodged.** no answer. this is the one that would be asked first in a real review
+- **what you hold:** the journey end to end, and the gate. Those did not wobble
+- **read before the call:** {formmap.go:50}, and the retry path, which never came up
 ```
+
+`score:` takes a whole number, 0 to 100. It answers one question and you should read it as exactly that: **how much of this change could they defend under questioning right now.** Not effort, not how many words they typed. A reader who answered three of twelve well is not at 25 percent if the three were the ones that mattered, and a reader who wrote something for all twelve is not at 100 because they did.
+
+Lead with the mistakes, one per line, naming the question number and how wrong it was. Then what they hold, then what to read before the call.
 
 **Ask like someone who has read the code, not a quizmaster.** Mix the three kinds, roughly in this order:
 
@@ -223,11 +230,9 @@ verdict: 4 of 6 held
 2. **Code-specific.** Name the line, the return, the field. "Which call refuses a late edit, and what does the caller see?"
 3. **Adversarial.** The thing a reviewer would actually push on. "I say this whole gate is premature optimisation. Convince me."
 
-Six questions is a full round, three is enough if they are answering thinly and clearly want out. Tune to what they engaged with: the stops they questioned deserve harder questions, and a stop they never touched is fair game for an easy one.
+Cover the whole page, not the interesting third of it. Every stage earns at least one question, the stops they questioned earn the hard ones, and one question should be about something the page never explained, because that is where a real reviewer goes.
 
-**Mark honestly.** "Close, but" beats "great". If they are wrong, say what is actually true and move on, no lecture. If they nail it, one word and the next question. Never award points for confidence.
-
-The verdict is the same shape as the rest of the page: claims with their evidence. What they hold, what they would get caught on, and one thing worth knowing that never came up. Chips wherever pointing beats describing.
+**Mark honestly.** "Wrong" is a word. If they are wrong, say what is actually true and why the difference matters, in one line. Never award points for confidence, effort, or word count, and never open with praise.
 
 ## Language rules
 
@@ -412,7 +417,7 @@ A look request has a home in the spec too, so it survives the rebuild that a con
 
 Style only. There is no javascript escape hatch, because a page's behaviour comes from its blocks, and a script in the spec is a rule the validator cannot check. To undo a change, copy the snapshot back from `history/` and rebuild.
 
-Answers are mini-markdown: `- ` bullets, backtick code, `[label](cursor://...)` links. Two richer forms, used only when the shape earns them:
+Answers are mini-markdown: `- ` bullets, `**bold**` lead words, backtick code, `{file.go:50}` chips, and `[label](cursor://...)` links. Two richer forms, used only when the shape earns them:
 
 - a line starting `flow:` (or a ```flow fence) renders as an arrow chain of pills: `flow: form JSON -> settle -> leftover list`. Use it whenever the answer is a process.
 - an ```svg fence renders inline as a diagram. Hand-write it small (a few boxes and arrows, viewBox, currentColor strokes), no scripts, no event handlers, no external references; it is sanitized and falls back to plain code if it fails the check. A diagram is for structure that words genuinely cannot carry, one per answer at most.

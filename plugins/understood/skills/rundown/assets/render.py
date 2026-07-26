@@ -383,16 +383,20 @@ def viva_html(spec: dict) -> str:
     """
     return (
         '<section id="viva"><h2>The questions <span class="hint">'
-        'a senior reviewer, one question at a time, then an honest verdict</span></h2>'
+        'a senior reviewer, a dozen of them, then a score you can argue with</span></h2>'
         '<div class="blk bare empty" id="viva-blk"><div class="blk-head">'
         '<button id="viva-start" class="btn primary" type="button">take the questions</button>'
         '<span id="viva-count"></span></div>'
-        '<div class="blk-body" id="viva-body"></div>'
-        '<div class="viva-ask" id="viva-ask" hidden>'
-        '<textarea id="viva-input" rows="2" placeholder="your answer, then Enter"></textarea>'
-        '<div class="viva-row"><button id="viva-send" class="btn primary" type="button">answer</button>'
-        '<button id="viva-stop" class="btn" type="button">that is enough</button>'
-        '<span class="hint">shift+Enter for a new line</span></div></div></div></section>'
+        '<div class="blk-body" id="viva-past"></div>'
+        '<div class="viva-deck" id="viva-deck" hidden>'
+        '<div class="viva-nav"><button id="viva-prev" class="btn" type="button">&larr;</button>'
+        '<span class="dots" id="viva-dots"></span>'
+        '<button id="viva-next" class="btn" type="button">&rarr;</button>'
+        '<span class="viva-at" id="viva-at"></span></div>'
+        '<p class="viva-q" id="viva-q"></p>'
+        '<textarea id="viva-input" rows="3" placeholder="your answer, Enter for the next one"></textarea>'
+        '<div class="viva-row"><button id="viva-score" class="btn primary" type="button">score me</button>'
+        '<span class="hint" id="viva-left"></span></div></div></div></section>'
     )
 
 def nav_html(spec: dict) -> str:
