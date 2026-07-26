@@ -1,0 +1,316 @@
+{
+  "id": "ask-loop",
+  "title": "the page asks back",
+  "subtitle": "one real question, \"hey\", riding the loop end to end",
+  "build": 1,
+  "navTitle": "ask loop",
+  "skills": [
+    {
+      "name": "caveman-english",
+      "hint": "blunt clipped rewording"
+    },
+    {
+      "name": "forward-arrow",
+      "hint": "step -> step -> step chains"
+    }
+  ],
+  "repo": {
+    "root": "~/Projects/understood/plugins/understood/skills/walkthrough",
+    "sha": "d352a9e",
+    "editor": "cursor"
+  },
+  "pipeline": {
+    "title": "the pipeline, one real question, today's run",
+    "steps": [
+      {
+        "text": "you select text and press Ask, the page POSTs one json record",
+        "where": "#page"
+      },
+      {
+        "text": "questions.jsonl gains one line, next to the html",
+        "where": "#server"
+      },
+      {
+        "text": "the waiter sees 1 question and 0 answers, exits: the wake signal",
+        "where": "#session"
+      },
+      {
+        "text": "the session that built the page answers, answers.jsonl gains a line",
+        "where": "#session"
+      },
+      {
+        "text": "the page polls, the card fills, the selection turns yellow",
+        "where": "#page"
+      }
+    ],
+    "record": {
+      "id": "aba0ecdd-425a-4fc3-9c2c-9ad150f46773",
+      "stop": "s2",
+      "selection": "chip's click handler, then",
+      "question": "hey"
+    },
+    "foot": "this record is real, it rode the loop earlier today"
+  },
+  "stages": [
+    {
+      "id": "st1",
+      "title": "the question is born",
+      "tag": "#page",
+      "stops": [
+        {
+          "id": "s1",
+          "headline": "The blue survives the click because the range is cloned before focus moves",
+          "ref": {
+            "path": "assets/template.html",
+            "symbol": "readSelection",
+            "line": 781,
+            "pattern": "function readSelection"
+          },
+          "block": {
+            "type": "switch",
+            "label": "cloneRange",
+            "ref": "assets/template.html:823",
+            "on": {
+              "state": "IN THE BUILD",
+              "lines": [
+                "you select text, the browser paints it blue",
+                "the range is cloned the instant Ask is pressed"
+              ],
+              "result": {
+                "text": "the blue holds while you type,",
+                "note": "and turns yellow when you send",
+                "tone": "good"
+              }
+            },
+            "off": {
+              "state": "WITHOUT THE CLONE",
+              "lines": [
+                "you select text, the browser paints it blue",
+                "focus moves into the input"
+              ],
+              "result": {
+                "text": "the selection vanishes,",
+                "note": "you type blind, not knowing what you asked about",
+                "tone": "bad"
+              }
+            }
+          },
+          "think": [
+            {
+              "claim": "a chip only appears for a real selection",
+              "proofs": [
+                "two characters minimum, inside the page, never inside the ask box itself"
+              ]
+            },
+            {
+              "claim": "a question always knows where it came from",
+              "proofs": [
+                "the enclosing stop id travels with the record",
+                "so the card finds its home again after any reload"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "st2",
+      "title": "the server takes it",
+      "tag": "#server",
+      "stops": [
+        {
+          "id": "s2",
+          "headline": "A 64 KB cap and a lock stand between the page and the questions file",
+          "ref": {
+            "path": "assets/serve.py",
+            "symbol": "do_POST",
+            "line": 139,
+            "pattern": "def do_POST"
+          },
+          "block": {
+            "type": "probe",
+            "ref": "assets/serve.py:139",
+            "inputs": [
+              {
+                "label": "{\"id\":\"q1\",\"question\":\"hey\"}",
+                "route": "accepted",
+                "tone": "good",
+                "fields": {
+                  "status": "204",
+                  "questions.jsonl": "+1 line"
+                }
+              },
+              {
+                "label": "not json",
+                "route": "refused before touching the file",
+                "tone": "bad",
+                "fields": {
+                  "status": "400",
+                  "questions.jsonl": "unchanged"
+                }
+              },
+              {
+                "label": "70 KB body",
+                "route": "refused on size",
+                "tone": "bad",
+                "fields": {
+                  "status": "413",
+                  "questions.jsonl": "unchanged"
+                }
+              }
+            ]
+          },
+          "think": [
+            {
+              "claim": "two clicks can land in the same instant",
+              "proofs": [
+                "the append holds a lock, the server is threaded"
+              ]
+            },
+            {
+              "claim": "a question outlives both the server and the session",
+              "proofs": [
+                "it is a line in a file, so whoever runs the waiter next can answer it"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "st3",
+      "title": "the session wakes",
+      "tag": "#session",
+      "stops": [
+        {
+          "id": "s3",
+          "headline": "The waiter exiting is the wake signal, the model never polls",
+          "ref": {
+            "path": "assets/wait_question.py",
+            "symbol": "while True",
+            "line": 58,
+            "pattern": "while True"
+          },
+          "block": {
+            "type": "chain",
+            "runLabel": "run the loop once",
+            "seed": "questions.jsonl: 1 line, answers.jsonl: 0",
+            "hops": [
+              {
+                "label": "files_signature()",
+                "chip": "wait_question.py:29",
+                "out": "mtime and size changed",
+                "desc": "the loop only re-parses when a file actually moved"
+              },
+              {
+                "label": "pending = questions - answers",
+                "chip": "wait_question.py:62",
+                "out": "1 pending record",
+                "desc": "pending is question ids minus answer ids, so a crash re-surfaces the same question"
+              },
+              {
+                "label": "print + exit 0",
+                "chip": "wait_question.py:66",
+                "out": "the session wakes",
+                "desc": "the process dying is the signal; nothing polls a model"
+              },
+              {
+                "label": "--answer <id>",
+                "chip": "wait_question.py:48",
+                "out": "answers.jsonl: +1 line",
+                "desc": "answer text arrives on stdin, so shell quoting never touches it"
+              }
+            ]
+          },
+          "think": [
+            {
+              "claim": "the answering session is the session that built the page",
+              "proofs": [
+                "so it answers with the diff, the conversation, and your skills in hand",
+                "which is why a question about fake test data still got the real answer"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "st4",
+      "title": "the answer lands",
+      "tag": "#page",
+      "stops": [
+        {
+          "id": "s4",
+          "headline": "A card finds its home and its yellow mark from the record alone",
+          "ref": {
+            "path": "assets/template.html",
+            "symbol": "cardKind",
+            "line": 694,
+            "pattern": "function cardKind"
+          },
+          "block": {
+            "type": "map",
+            "nodes": [
+              {
+                "label": "selection",
+                "note": "range plus stop id",
+                "ref": "assets/template.html:771"
+              },
+              {
+                "label": "POST /ask",
+                "note": "capped and locked",
+                "ref": "assets/serve.py:139"
+              },
+              {
+                "label": "questions.jsonl",
+                "note": "one line per ask"
+              },
+              {
+                "label": "waiter",
+                "note": "exits, waking the session",
+                "ref": "assets/wait_question.py:58"
+              },
+              {
+                "label": "answers.jsonl",
+                "note": "one line per answer"
+              },
+              {
+                "label": "the card",
+                "note": "beside its text, in the margin",
+                "ref": "assets/template.html:684"
+              }
+            ]
+          },
+          "think": [
+            {
+              "claim": "a mark is re-found from its text, never from pixels",
+              "proofs": [
+                "the stored selection is searched inside its own stop first",
+                "if the text changed, that one mark drops and the card says so"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "discussion": [
+    {
+      "id": "q-seed",
+      "build": 1,
+      "anchor": "s3.think.1",
+      "quote": "the answering session is the session that built the page",
+      "question": "what if that session is gone?",
+      "answer": "- the question stays in the file, nothing is lost\n- a fresh session can answer it, it just re-reads the code instead of remembering the build",
+      "replies": [
+        {
+          "id": "q-seed-2",
+          "parent": "q-seed",
+          "question": "so the answers get worse?",
+          "answer": "- narrower, not wrong\n- it loses why a choice was made, and keeps what the code says"
+        }
+      ]
+    }
+  ],
+  "ledger": null
+}

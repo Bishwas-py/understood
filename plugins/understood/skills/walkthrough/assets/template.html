@@ -231,9 +231,78 @@
 	.btn.primary:hover:not(:disabled) { color: #fff; filter: brightness(1.12); }
 	.btn.on { background: var(--say-bg); border-color: var(--accent); color: var(--accent); }
 	.btn.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .76rem; }
-	ul.think { list-style: none; padding: 0; margin: .5rem 0 0; border-left: 2px solid var(--line); }
-	ul.think li { padding: .28rem 0 .28rem .8rem; }
-	ul.think .arw, .arw { color: var(--accent); font-weight: 600; }
+	/* Think lines: a real bullet list in a hand, because these get copied into notes.
+	   One proof renders flat, two or more nest; the renderer decides, never the author. */
+	ul.think {
+		margin: .6rem 0 0;
+		padding-left: 1.15rem;
+		font-family: "Noteworthy", "Chalkboard SE", cursive;
+		font-size: 1.02rem;
+		line-height: 1.75;
+	}
+	ul.think > li { margin: .45rem 0; }
+	ul.think li::marker { color: var(--accent); }
+	ul.think ul { list-style: circle; margin: .25rem 0 .45rem; padding-left: 1.1rem; }
+	ul.think ul li { margin: .2rem 0; color: var(--muted); }
+	.arw { color: var(--accent); font-weight: 600; }
+	.build { color: var(--muted); font-size: .8em; }
+	/* Block internals. Every block draws its resting state server side and the
+	   runtime below wires the interaction from its config. */
+	.blk-body { padding: .7rem .8rem; font-size: .9rem; }
+	.blk-head .hint { font-size: .8rem; color: var(--muted); }
+	.blk-head .state { margin-left: auto; font-size: .75rem; color: var(--accent); letter-spacing: .05em; }
+	.tgl { width: 44px; height: 24px; border-radius: 999px; border: 1px solid var(--line); background: var(--accent); position: relative; cursor: pointer; flex: 0 0 auto; transition: background .25s; }
+	.tgl .knob { position: absolute; top: 2px; left: 22px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .25s; }
+	.blk .ln, .blk .res, .blk .row, .blk .val, .blk .read, .blk .route { margin: .2rem 0; }
+	.blk .row, .blk .art { font-family: ui-monospace, Menlo, monospace; font-size: .78rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+	.blk .row { border: 1px solid var(--line); border-radius: 6px; padding: .35rem .5rem; background: var(--code-bg); }
+	.blk .log { color: var(--muted); line-height: 1.7; margin-top: .4rem; min-height: 1.2rem; }
+	.tone-good { color: var(--ba-good-fg); }
+	.tone-bad { color: var(--ba-bad-fg); }
+	.blk .hops { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; }
+	.blk .hop { border: 1px solid var(--line); border-radius: 8px; padding: .25rem .55rem; cursor: pointer; transition: all .25s; }
+	.blk .hop:hover { border-color: var(--accent); }
+	.blk .hop.hot { border-color: var(--accent); background: var(--say-bg); }
+	.blk .val { display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; margin-top: .55rem; }
+	.blk .val .k { font-size: .75rem; color: var(--muted); }
+	.blk .val .v { border: 1px solid var(--accent); border-radius: 999px; padding: .1rem .6rem; font-size: .78rem; background: var(--say-bg); }
+	.blk .desc, .blk .verdict, .blk .fields { margin-top: .4rem; color: var(--muted); min-height: 1.2rem; }
+	.blk .rng { margin-left: auto; width: min(250px, 40%); accent-color: var(--accent); }
+	.blk .count { margin-top: .4rem; }
+	.blk .lock { display: flex; align-items: center; gap: .4rem; font-size: .85rem; cursor: pointer; }
+	.blk .bd { background: var(--say-bg); border-bottom: 2px solid var(--accent); border-radius: 2px; transition: background .15s; }
+	.blk .bd.glow, .blk .bl.glow { background: var(--hl-lit); }
+	.blk .bl { transition: background .15s; border-radius: 4px; padding: 0 .25rem; cursor: default; }
+	.blk .mapwrap { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+	.blk .mapnode { display: inline-block; text-decoration: none; color: inherit; border: 1px solid var(--line); border-radius: 9px; padding: .3rem .6rem; background: var(--panel); transition: border-color .15s, background .15s; }
+	.blk .mapnode:hover { border-color: var(--accent); background: var(--say-bg); }
+	.blk .mapnode b { display: block; font-size: .85rem; }
+	.blk .mapnode span { display: block; font-size: .76rem; color: var(--muted); margin-top: .1rem; }
+	.blk .space, .blk .ang { width: 100%; max-width: 520px; display: block; font-size: 8px; }
+	.blk .space text, .blk .ang text { fill: currentColor; }
+	.blk .space .pt { fill: var(--accent); opacity: .45; }
+	.blk .space .pt.near { opacity: 1; stroke: var(--ba-good-fg); stroke-width: 2; }
+	.blk .space .star { fill: var(--ba-bad-fg); font-size: 13px; transition: x .4s, y .4s; }
+	.blk .anglewrap { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; }
+	.blk .ang line, .blk .ang path, .blk .ang circle { fill: none; stroke: currentColor; }
+	.blk .ang .qv { stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; }
+	.blk .ang .pv { stroke: var(--ba-bad-fg); stroke-width: 3.5; stroke-linecap: round; }
+	.blk .ang .arc { fill: var(--say-bg); stroke: var(--accent); stroke-width: 1; }
+	.blk .ang .gate { stroke: var(--muted); stroke-dasharray: 4 3; opacity: .6; }
+	.blk .ang circle { fill: currentColor; stroke: none; }
+	.blk .bar { height: 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+	.blk .bar .fill { height: 100%; width: 0; background: var(--accent); transition: width .3s, background .3s; }
+	.blk .pt { display: flex; gap: .3rem; align-items: center; font-size: .8rem; cursor: pointer; }
+	.blk .dots { letter-spacing: .3em; color: var(--muted); }
+	.blk .moment { min-height: 3rem; }
+	/* Claim checks, generated on demand at the end. */
+	#claims .cl { display: flex; gap: .6rem; align-items: baseline; padding: .35rem .4rem; border-radius: 7px; }
+	#claims .cl .tick { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; border: 1px solid var(--line); border-radius: 50%; cursor: pointer; display: inline-block; }
+	#claims .cl .tick:hover { border-color: var(--accent); }
+	#claims .cl.done .tick { border-color: var(--ba-good-fg); background: var(--ba-good); }
+	#claims .cl.done .txt { opacity: .5; }
+	#claims .cl .tick::after { content: ""; }
+	#cl-score { font-weight: 600; color: var(--accent); }
 	/* Ask-from-selection: floating chip, question input, pinned Q&A card. */
 	#askchip, #askpop { position: absolute; z-index: 60; }
 	#askchip {
@@ -494,6 +563,8 @@
 
 	let sel = null;
 	const pendingSince = {};
+	const claimWaiters = {};
+	const renderedClaims = {};
 	let pollTimer = null;
 
 	// Keep the selection painted while the input has focus, flip it yellow once sent.
@@ -938,6 +1009,15 @@
 
 	function upsertCard(q, answer) {
 		let changed = false;
+		if (q.via === 'ledger') {
+			if (answer !== undefined && !renderedClaims[q.id]) {
+				renderedClaims[q.id] = true;
+				if (window.__renderClaims) window.__renderClaims(answer);
+				if (claimWaiters[q.id]) { claimWaiters[q.id](); delete claimWaiters[q.id]; }
+				return true;
+			}
+			return false;
+		}
 		let card = document.getElementById('qa-' + q.id);
 		if (!card) {
 			changed = true;
@@ -1110,6 +1190,244 @@
 	new MutationObserver(() => { if (!upgrading) requestAnimationFrame(upgradePathChips); })
 		.observe(document.body, { childList: true, subtree: true });
 	upgradePathChips();
+
+	// Live-block runtime. Each block draws its resting state server side and carries
+	// a config; this wires the interaction. Every press speaks, refusals say why,
+	// a running block disables its controls and restores them.
+	const BLOCK = {
+		switch(el, c) {
+			const tgl = el.querySelector('.tgl'), knob = el.querySelector('.knob');
+			const state = el.querySelector('.state'), body = el.querySelector('.blk-body');
+			const draw = on => {
+				const s = on ? c.on : (c.off || c.on);
+				body.innerHTML = (s.lines || []).map(l => '<div class="ln">' + l + '</div>').join('')
+					+ '<div class="res">' + (s.result?.text || '') + ' <span class="tone-'
+					+ (s.result?.tone || 'good') + '">' + (s.result?.note || '') + '</span></div>';
+				state.textContent = s.state || '';
+				state.style.color = on ? 'var(--accent)' : 'var(--ba-bad-fg)';
+				tgl.style.background = on ? 'var(--accent)' : 'var(--line)';
+				knob.style.left = on ? '22px' : '2px';
+				tgl.setAttribute('aria-pressed', String(on));
+			};
+			tgl.addEventListener('click', () => draw(tgl.getAttribute('aria-pressed') !== 'true'));
+		},
+		race(el, c) {
+			const run = el.querySelector('.run'), lock = el.querySelector('input');
+			const row = el.querySelector('.row'), log = el.querySelector('.log');
+			const seed = row.textContent;
+			run.addEventListener('click', () => {
+				run.disabled = lock.disabled = true;
+				run.textContent = 'racing…';
+				log.innerHTML = ''; row.textContent = seed;
+				const steps = (lock.checked ? c.with : c.without) || [];
+				steps.forEach((s, i) => setTimeout(() => {
+					const text = typeof s === 'string' ? s : s.text;
+					const tone = typeof s === 'string' ? '' : (s.tone || '');
+					log.innerHTML += '<div class="' + (tone ? 'tone-' + tone : '') + '">' + text + '</div>';
+					if (typeof s === 'object' && s.row) row.textContent = JSON.stringify(s.row, null, 2);
+					if (i === steps.length - 1) { run.disabled = lock.disabled = false; run.textContent = 'run the race'; }
+				}, 550 * (i + 1)));
+			});
+		},
+		chain(el, c) {
+			const run = el.querySelector('.run'), hops = [...el.querySelectorAll('.hop')];
+			const ref = el.querySelector('.ref'), val = el.querySelector('.v'), desc = el.querySelector('.desc');
+			const show = i => {
+				const h = c.hops[i];
+				hops.forEach((n, j) => n.classList.toggle('hot', i === j));
+				ref.innerHTML = h.chip || '';
+				val.textContent = h.out || '';
+				desc.textContent = h.desc || '';
+			};
+			hops.forEach((n, i) => n.addEventListener('click', () => { if (!run.disabled) show(i); }));
+			run.addEventListener('click', () => {
+				run.disabled = true;
+				const label = run.textContent;
+				run.textContent = 'flowing…';
+				val.textContent = c.seed || '';
+				hops.forEach(n => n.classList.remove('hot'));
+				c.hops.forEach((_, i) => setTimeout(() => {
+					show(i);
+					if (i === c.hops.length - 1) { run.disabled = false; run.textContent = label; }
+				}, 700 * (i + 1)));
+			});
+		},
+		dial(el, c) {
+			const rng = el.querySelector('.rng'), dv = el.querySelector('.dv');
+			const read = el.querySelector('.read'), verdict = el.querySelector('.verdict');
+			const draw = () => {
+				const v = parseFloat(rng.value);
+				dv.textContent = c.decimals != null ? v.toFixed(c.decimals) : v;
+				const zone = (c.zones || []).find(z => v <= z.upto) || (c.zones || [])[c.zones.length - 1];
+				if (zone) {
+					verdict.textContent = zone.verdict || '';
+					verdict.className = 'verdict tone-' + (zone.tone || 'good');
+				}
+				if (c.readout) read.innerHTML = c.readout.replace(/\{v\}/g, dv.textContent);
+			};
+			rng.addEventListener('input', draw);
+			draw();
+		},
+		probe(el, c) {
+			const route = el.querySelector('.route'), fields = el.querySelector('.fields');
+			el.querySelectorAll('.in').forEach(b => b.addEventListener('click', () => {
+				el.querySelectorAll('.in').forEach(x => x.classList.toggle('on', x === b));
+				const inp = c.inputs[+b.dataset.i];
+				route.innerHTML = 'route: <b class="tone-' + (inp.tone || 'good') + '">' + inp.route + '</b>';
+				fields.textContent = Object.entries(inp.fields || {})
+					.map(([k, v]) => k + ': ' + (v === '' ? '(empty)' : v)).join(' · ');
+			}));
+		},
+		bind(el) {
+			const glow = (k, on) => el.querySelectorAll('[data-k="' + k + '"]')
+				.forEach(x => x.classList.toggle('glow', on));
+			el.querySelectorAll('.bd, .bl').forEach(x => {
+				x.addEventListener('mouseenter', () => glow(x.dataset.k, true));
+				x.addEventListener('mouseleave', () => glow(x.dataset.k, false));
+			});
+		},
+		ledger(el, c) {
+			const row = el.querySelector('.row'), n = el.querySelector('.n'), log = el.querySelector('.log');
+			const empty = row.textContent;
+			let state = null;
+			const say = (t, tone) => {
+				log.innerHTML = '<div class="' + (tone ? 'tone-' + tone : '') + '">' + t + '</div>' + log.innerHTML;
+				while (log.children.length > 3) log.lastChild.remove();
+			};
+			el.querySelectorAll('.act').forEach(b => b.addEventListener('click', () => {
+				const a = c.actions[+b.dataset.i];
+				if (a.needsRow && !state) { say(a.refuses || 'nothing to act on yet'); return; }
+				if (a.creates) state = state ? { ...state, ...(a.sets || {}) } : { ...(a.creates || {}) };
+				else if (state && a.sets) state = { ...state, ...a.sets };
+				say(state && a.repeat && b.dataset.fired ? (a.repeat) : (a.says || ''), a.tone);
+				b.dataset.fired = '1';
+				row.textContent = state ? JSON.stringify(state) : empty;
+				n.textContent = state ? '1' : '0';
+				row.style.background = 'var(--say-bg)';
+				setTimeout(() => { row.style.background = ''; }, 450);
+			}));
+		},
+		stepper(el, c) {
+			const body = el.querySelector('.moment'), ref = el.querySelector('.ref'), dots = el.querySelector('.dots');
+			let i = 0;
+			const draw = () => {
+				const m = c.moments[i];
+				body.innerHTML = m.text || '';
+				ref.innerHTML = m.chip || '';
+				dots.textContent = c.moments.map((_, j) => j === i ? '●' : '○').join('');
+			};
+			el.querySelector('.next').addEventListener('click', () => { i = (i + 1) % c.moments.length; draw(); });
+			el.querySelector('.prev').addEventListener('click', () => { i = (i + c.moments.length - 1) % c.moments.length; draw(); });
+			draw();
+		},
+		map() { /* nodes are plain links, nothing to wire */ },
+		space(el, c) {
+			const star = el.querySelector('.star'), read = el.querySelector('.read');
+			const pts = [...el.querySelectorAll('.pt')];
+			el.querySelectorAll('.q').forEach(b => b.addEventListener('click', () => {
+				el.querySelectorAll('.q').forEach(x => x.classList.toggle('on', x === b));
+				const q = c.queries[+b.dataset.i];
+				star.setAttribute('x', q.star[0]); star.setAttribute('y', q.star[1]);
+				const scored = pts.map((p, i) => ({ p, s: (q.scores || [])[i] || 0 })).sort((a, b2) => b2.s - a.s);
+				pts.forEach(p => p.classList.remove('near'));
+				scored.slice(0, q.top || 3).forEach(x => x.p.classList.add('near'));
+				read.innerHTML = 'nearest for <b>' + q.label + '</b>: ' + scored.slice(0, q.top || 3)
+					.map(x => c.points[pts.indexOf(x.p)].label + ' <code>' + x.s.toFixed(2) + '</code>').join(' · ');
+			}));
+		},
+		angle(el, c) {
+			const rng = el.querySelector('.rng'), cv = el.querySelector('.cv');
+			const OX = 30, OY = 120, R = 100;
+			const pt = (d, r) => [OX + r * Math.cos(d * Math.PI / 180), OY - r * Math.sin(d * Math.PI / 180)];
+			const gate = c.gate != null ? c.gate : 0.35;
+			const gd = Math.acos(gate) * 180 / Math.PI, [gx, gy] = pt(gd, R);
+			el.querySelector('.gate').setAttribute('x2', gx);
+			el.querySelector('.gate').setAttribute('y2', gy);
+			const gl = el.querySelector('.gatelab'), [lx, ly] = pt(gd, R + 4);
+			gl.setAttribute('x', lx - 12); gl.setAttribute('y', ly - 4);
+			gl.textContent = gate.toFixed(2) + ' gate';
+			const draw = () => {
+				const d = +rng.value, [vx, vy] = pt(d, R);
+				const pv = el.querySelector('.pv');
+				pv.setAttribute('x2', vx); pv.setAttribute('y2', vy);
+				const pl = el.querySelector('.plab'), [px, py] = pt(d, R + 12);
+				pl.setAttribute('x', px - 10); pl.setAttribute('y', py); pl.textContent = 'page';
+				const [ax, ay] = pt(0, 34), [bx, by] = pt(d, 34);
+				el.querySelector('.arc').setAttribute('d',
+					'M ' + OX + ' ' + OY + ' L ' + ax + ' ' + ay + ' A 34 34 0 0 0 ' + bx + ' ' + by + ' Z');
+				const dl = el.querySelector('.deg'), [dx, dy] = pt(d / 2, 48);
+				dl.setAttribute('x', dx - 8); dl.setAttribute('y', dy + 3); dl.textContent = d + '°';
+				const cos = Math.cos(d * Math.PI / 180);
+				cv.textContent = cos.toFixed(2);
+				const z = (c.zones || []).find(z2 => cos > z2.above) || { text: 'pointing away, opposite meaning', tone: 'bad' };
+				const zone = el.querySelector('.zone');
+				zone.textContent = z.text; zone.className = 'zone tone-' + (z.tone || 'good');
+			};
+			rng.addEventListener('input', draw);
+			draw();
+		},
+		stack(el, c) {
+			const bar = el.querySelector('.fill'), tok = el.querySelector('.tok'), verdict = el.querySelector('.verdict');
+			const draw = () => {
+				let t = 0;
+				el.querySelectorAll('.pt input').forEach(x => { if (x.checked) t += c.parts[+x.dataset.i].tokens; });
+				tok.textContent = t.toLocaleString('de-CH').replace(/,/g, "'");
+				const over = t > c.budget;
+				bar.style.width = Math.min(100, t / c.budget * 100) + '%';
+				bar.style.background = over ? 'var(--ba-bad-fg)' : 'var(--accent)';
+				verdict.textContent = over ? (c.over || 'over budget, the model truncates') : (c.fits || 'fits');
+				verdict.className = 'verdict tone-' + (over ? 'bad' : 'good');
+			};
+			el.querySelectorAll('.pt input').forEach(x => x.addEventListener('change', draw));
+			draw();
+		},
+		raw() {},
+	};
+	document.querySelectorAll('.blk[data-block]').forEach(el => {
+		const kind = el.dataset.block, fn = BLOCK[kind];
+		if (!fn) return;
+		const cfgEl = el.querySelector(':scope > .blk-cfg');
+		let cfg = {};
+		try { cfg = JSON.parse(cfgEl ? cfgEl.textContent : '{}'); } catch (e) {}
+		try { fn(el, cfg); } catch (e) { console.error('block ' + kind, e); }
+	});
+
+	// Claim checks: the button asks the session to generate them, the answer's
+	// bullets become tickable rows. Generated at the end, never at build time.
+	const genBtn = document.getElementById('gen-claims');
+	if (genBtn) {
+		const clBody = document.getElementById('cl-body'), clScore = document.getElementById('cl-score');
+		const rescore = () => {
+			const rows = [...clBody.querySelectorAll('.cl')];
+			clScore.textContent = rows.length
+				? rows.filter(r => r.classList.contains('done')).length + ' of ' + rows.length + ' confirmed' : '';
+		};
+		const wire = () => {
+			clBody.querySelectorAll('.cl .tick').forEach(t => t.addEventListener('click', () => {
+				t.closest('.cl').classList.toggle('done');
+				rescore();
+			}));
+			rescore();
+		};
+		wire();
+		genBtn.addEventListener('click', () => {
+			genBtn.disabled = true;
+			genBtn.textContent = 'generating…';
+			const id = newId();
+			claimWaiters[id] = () => { genBtn.disabled = false; genBtn.textContent = 'regenerate'; };
+			submitQuestion({
+				id, stop: '', selection: '', parent: '', via: 'ledger',
+				question: 'generate the claim checks for this page, one claim per bullet, each with its file:line chip',
+			});
+		});
+		window.__renderClaims = (answer) => {
+			const rows = answer.split('\n').map(l => l.trim()).filter(l => l.startsWith('- '));
+			clBody.innerHTML = rows.map(l =>
+				'<div class="cl"><span class="tick"></span><span class="txt">' + inline(esc(l.slice(2))) + '</span></div>'
+			).join('');
+			wire();
+		};
+	}
 
 	function startPolling() { if (!pollTimer) pollTimer = setInterval(syncQA, 2000); }
 	function stopPolling() { clearInterval(pollTimer); pollTimer = null; }

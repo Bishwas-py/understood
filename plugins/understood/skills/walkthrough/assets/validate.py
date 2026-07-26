@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""Check a walkthrough spec against the repo and against the skill's rules.
+
+Every line number in a walkthrough is a promise, so this runs before a page is
+ever served. Errors fail the build; warnings are printed and let it through.
+
+    python3 validate.py path/to/walkthrough.json
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+from spec import BLOCK_TYPES, CHIP_RE, NAV_VERBS, expand_root, find_file, ref_parts
+
+EM_DASH = "—"
+
+
+class Report:
+    def __init__(self):
+        self.items: list[tuple[str, str, str]] = []
+
+    def error(self, where: str, msg: str) -> None:
+        self.items.append(("error", where, msg))
+
+    def warn(self, where: str, msg: str) -> None:
+        self.items.append(("warn", where, msg))
+
+    @property
+    def errors(self):
+        return [i for i in self.items if i[0] == "error"]
+
+    def print(self) -> None:
+        for level, where, msg in self.items:
+            mark = "FAIL" if level == "error" else "warn"
+            print(f"  {mark}  {where}: {msg}")
+        if not self.items:
+            print("  ok, no findings")
+
+
+def check_ref(rep: Report, repo: dict, where: str, ref) -> None:
+    """A ref resolves to a real file, and its symbol really sits on that line."""
+    if isinstance(ref, str):
+        ref = {"path": ref_parts(ref)[0], "line": ref_parts(ref)[1]}
+    root = expand_root(repo["root"])
+    hit = find_file(root, ref["path"])
+    if not hit:
+        rep.error(where, f"file not found under {root}: {ref['path']}")
+        return
+    line = int(ref.get("line") or 0)
+    symbol = ref.get("symbol")
+    pattern = ref.get("pattern")
+    try:
+        lines = hit.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as e:
+        rep.error(where, f"cannot read {hit}: {e}")
+        return
+    if line and line > len(lines):
+        rep.error(where, f"{ref['path']} has {len(lines)} lines, ref points at {line}")
+        return
+    text = lines[line - 1] if line else ""
+    # The pattern is the authority when present: a symbol's first occurrence is
+    # often a call site, while the pattern names the definition.
+    if pattern:
+        try:
+            rx = re.compile(pattern)
+        except re.error as e:
+            rep.error(where, f"bad pattern {pattern!r}: {e}")
+            return
+        hits = [i + 1 for i, l in enumerate(lines) if rx.search(l)]
+        if not hits:
+            rep.error(where, f"pattern {pattern!r} matches nothing in {ref['path']}")
+        elif line and line not in hits:
+            rep.error(where, f"ref says line {line}, pattern matches {hits[0]} in {ref['path']}")
+        return
+    if symbol and line and symbol not in text:
+        found = next((i + 1 for i, l in enumerate(lines) if symbol in l), None)
+        if found:
+            rep.error(where, f"{symbol} is not on line {line} of {ref['path']}, it is on {found}")
+        else:
+            rep.error(where, f"{symbol} does not appear in {ref['path']}")
+
+
+def check_text(rep: Report, repo: dict, where: str, text: str) -> None:
+    if EM_DASH in text:
+        rep.error(where, "em-dash in page text, use a comma, period, or parentheses")
+    for m in CHIP_RE.finditer(text):
+        check_ref(rep, repo, f"{where} chip", m.group(1))
+
+
+def check_claim(rep: Report, repo: dict, where: str, claim: str) -> None:
+    check_text(rep, repo, where, claim)
+    if NAV_VERBS.match(claim.strip()):
+        rep.error(where, f"starts with a navigation verb, state a finding instead: {claim!r}")
+    stripped = CHIP_RE.sub("", claim).strip(" ,.:")
+    if not stripped:
+        rep.error(where, "is only a code reference, a claim needs a finding")
+    elif CHIP_RE.search(claim):
+        rep.warn(where, "holds a code reference; locations usually belong in the proofs")
+
+
+def validate(spec: dict) -> Report:
+    rep = Report()
+    repo = spec.get("repo") or {}
+    if not repo.get("root"):
+        rep.error("repo", "missing repo.root")
+        return rep
+    if not expand_root(repo["root"]).is_dir():
+        rep.error("repo", f"root is not a directory: {repo['root']}")
+        return rep
+    if not repo.get("sha"):
+        rep.warn("repo", "no commit sha pinned, drift cannot be dated")
+
+    for key in ("id", "title", "stages"):
+        if not spec.get(key):
+            rep.error("spec", f"missing {key}")
+
+    pipe = spec.get("pipeline") or {}
+    for i, step in enumerate(pipe.get("steps") or []):
+        check_text(rep, repo, f"pipeline.steps[{i}]", step.get("text", ""))
+
+    seen_ids: set[str] = set()
+    for si, stage in enumerate(spec.get("stages") or []):
+        swhere = f"stages[{si}]"
+        check_text(rep, repo, f"{swhere}.title", stage.get("title", ""))
+        for pi, stop in enumerate(stage.get("stops") or []):
+            sid = stop.get("id") or f"{swhere}.stops[{pi}]"
+            if sid in seen_ids:
+                rep.error(sid, "duplicate stop id")
+            seen_ids.add(sid)
+            head = stop.get("headline", "")
+            if not head:
+                rep.error(sid, "stop has no headline")
+            else:
+                check_claim(rep, repo, f"{sid}.headline", head)
+            if stop.get("ref"):
+                check_ref(rep, repo, f"{sid}.ref", stop["ref"])
+            block = stop.get("block")
+            if block:
+                btype = block.get("type")
+                if btype not in BLOCK_TYPES:
+                    rep.error(f"{sid}.block", f"unknown block type {btype!r}")
+                for key in ("label", "title"):
+                    if isinstance(block.get(key), str):
+                        check_text(rep, repo, f"{sid}.block.{key}", block[key])
+            for ti, think in enumerate(stop.get("think") or []):
+                twhere = f"{sid}.think[{ti}]"
+                claim = think.get("claim", "")
+                if not claim:
+                    rep.error(twhere, "think entry has no claim")
+                else:
+                    check_claim(rep, repo, f"{twhere}.claim", claim)
+                for pi2, proof in enumerate(think.get("proofs") or []):
+                    check_text(rep, repo, f"{twhere}.proofs[{pi2}]", proof)
+
+    for qi, q in enumerate(spec.get("discussion") or []):
+        for entry in [q] + list(q.get("replies") or []):
+            if entry.get("answer"):
+                check_text(rep, repo, f"discussion[{qi}].answer", entry["answer"])
+    return rep
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print(__doc__)
+        return 2
+    from spec import load
+
+    path = Path(sys.argv[1])
+    rep = validate(load(path))
+    print(f"validating {path.name}")
+    rep.print()
+    return 1 if rep.errors else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
