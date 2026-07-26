@@ -19,7 +19,7 @@ CODE_RE = re.compile(r"`([^`]+)`")
 NAV_VERBS = re.compile(r"^(open|click|cmd-click|scroll|back|line|go to|jump)\b", re.I)
 BLOCK_TYPES = {
     "switch", "stepper", "dial", "bind", "race", "ledger",
-    "probe", "map", "space", "angle", "stack", "chain", "raw",
+    "probe", "map", "flow", "space", "angle", "stack", "chain", "raw",
 }
 
 

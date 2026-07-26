@@ -15,7 +15,8 @@ import json
 import sys
 from pathlib import Path
 
-from spec import chip, esc, inline, json_block, load, pretty, ref_parts
+import mermaid
+from spec import chip, esc, inline, json_block, load, pretty, ref_href, ref_parts
 
 HERE = Path(__file__).resolve().parent
 
@@ -251,6 +252,18 @@ def b_stack(repo, sid, c):
     return _cfg("stack", repo, c, head + body, sid)
 
 
+def b_flow(repo, sid, c):
+    """A mermaid flowchart, drawn to svg at build time so the page stays one file."""
+    hrefs = {}
+    for key, ref in (c.get("refs") or {}).items():
+        href = ref_href(repo, ref)
+        if href:
+            hrefs[key] = href
+    svg = mermaid.to_svg(c.get("mermaid", ""), hrefs)
+    cap = f'<p class="cap">{inline(repo, c["caption"])}</p>' if c.get("caption") else ""
+    return f'<div class="blk flow" data-block="flow" data-stop="{sid}"><div class="blk-body">{svg}{cap}</div></div>'
+
+
 def b_raw(repo, sid, c):
     return f'<div class="blk" data-block="raw" data-stop="{sid}">{c.get("html", "")}</div>'
 
@@ -258,7 +271,7 @@ def b_raw(repo, sid, c):
 BLOCKS = {
     "switch": b_switch, "race": b_race, "chain": b_chain, "dial": b_dial,
     "probe": b_probe, "bind": b_bind, "ledger": b_ledger, "stepper": b_stepper,
-    "map": b_map, "space": b_space, "angle": b_angle, "stack": b_stack, "raw": b_raw,
+    "map": b_map, "flow": b_flow, "space": b_space, "angle": b_angle, "stack": b_stack, "raw": b_raw,
 }
 
 

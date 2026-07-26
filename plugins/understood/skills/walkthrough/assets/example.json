@@ -63,13 +63,13 @@
           "ref": {
             "path": "assets/template.html",
             "symbol": "readSelection",
-            "line": 781,
+            "line": 822,
             "pattern": "function readSelection"
           },
           "block": {
             "type": "switch",
             "label": "cloneRange",
-            "ref": "assets/template.html:823",
+            "ref": "assets/template.html:911",
             "on": {
               "state": "IN THE BUILD",
               "lines": [
@@ -245,41 +245,21 @@
           "ref": {
             "path": "assets/template.html",
             "symbol": "cardKind",
-            "line": 694,
+            "line": 735,
             "pattern": "function cardKind"
           },
           "block": {
-            "type": "map",
-            "nodes": [
-              {
-                "label": "selection",
-                "note": "range plus stop id",
-                "ref": "assets/template.html:771"
-              },
-              {
-                "label": "POST /ask",
-                "note": "capped and locked",
-                "ref": "assets/serve.py:139"
-              },
-              {
-                "label": "questions.jsonl",
-                "note": "one line per ask"
-              },
-              {
-                "label": "waiter",
-                "note": "exits, waking the session",
-                "ref": "assets/wait_question.py:58"
-              },
-              {
-                "label": "answers.jsonl",
-                "note": "one line per answer"
-              },
-              {
-                "label": "the card",
-                "note": "beside its text, in the margin",
-                "ref": "assets/template.html:684"
-              }
-            ]
+            "type": "flow",
+            "mermaid": "flowchart TD\n    A[you select text and press Ask] --> B[POST /ask]\n    B -->|64 KB cap, one lock| C[(questions.jsonl)]\n    C --> D{waiter: any id without an answer}\n    D -->|exit 0, the wake signal| E[the building session answers]\n    E --> F[(answers.jsonl)]\n    F -->|poll every 2s| G([card fills, mark turns yellow])\n    G --> A",
+            "refs": {
+              "A": "assets/template.html:822",
+              "B": "assets/serve.py:139",
+              "C": "assets/serve.py:163",
+              "D": "assets/wait_question.py:58",
+              "E": "assets/wait_question.py:53",
+              "G": "assets/template.html:735"
+            },
+            "caption": "every node is a code reference, the loop closes because an answered card can be quoted again"
           },
           "think": [
             {
