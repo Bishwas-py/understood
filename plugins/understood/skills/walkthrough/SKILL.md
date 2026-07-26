@@ -63,11 +63,13 @@ Beauty is not decoration here. A page the reader wants to look at is a page they
 
 **Use the space you have.** If there is room, take it: wider nodes, more padding, longer line length. Crowded output reads as unfinished. A diamond only reaches full width at its middle, so text inside one needs roughly twice the room a box does; a cylinder needs height for its rim. Measure the shape, not the string.
 
-**Prefer the straight line, then the gutter.** A connector between two things that already sit level is a straight line; anything else leaves the text, runs down the margin beside it, and comes back in. A curve that sweeps across a paragraph is prettier in isolation and worse on the page. The same rule governs a chart's return edge: route it outside the widest node, not through whichever one happens to be in the way.
+**Draw the line, do not rule it.** A connector is always a curve: a soft wave when the two ends sit level, and one smooth sweep with its control points out in the margin when they are far apart, so it leaves and arrives horizontally and never turns a corner. Straight lines and elbows read as plumbing; a drawn line reads as a hand pointing. Keep the curve out of the text column, and route a chart's return edge outside the widest node rather than through whichever one is in the way.
 
 **Nothing crosses anything.** A connector line must not run through a label, an arrow must not pass under words, a chip must not collide with the text beside it. When two things must share a spot, give the upper one a plate in the page background.
 
 **Every layer knows its depth.** A highlight paints over text, a connector thread paints under it, a card floats beside it. Anything that would obscure reading belongs behind the text at low opacity, and lifts only on hover.
+
+**A pointer glows, it does not bracket.** The handle that ties a card to its text is a soft radial glow at the corner, not a drawn bracket. Hard geometry announces a widget; a glow suggests a place to put the cursor and disappears when it is not wanted.
 
 **One weight of ink per idea.** A state label is a small pill, not a heading. A claim is bold, its proof is plain, a code chip is monospace. If two things look equally loud, the reader has to decide what matters, which is the job the page was supposed to do.
 
