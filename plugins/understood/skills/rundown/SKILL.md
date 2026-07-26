@@ -148,6 +148,7 @@ Reference implementations for every block live in `assets/blocks.html`; copy the
 - the control is fused to a real `file:line` chip; what the line does and where it lives are one object
 - every chip inside a block is an editor anchor, never plain text: `<a class="path" href="cursor://file/ABS/PATH/file.go:155">file.go:155</a>`, including the ones a block writes from JS (carry the href in a `data-href` or a `href` field beside the label). The template upgrades any chip left as a bare `span.path` when its filename appears in another anchor, but that is a safety net, not the plan
 - every value shown comes from the actual run, never invented
+- a block config holds text, never html. The renderer escapes every string in it exactly once, expanding `{chips}` and `` `backticks` `` on the way, so a `<b>` written in a spec reaches the reader as the characters `<b>`
 - every interaction produces a visible utterance; a refused action says why it refused
 - a running block disables its controls and says it is running ("racing…"); they restore when done
 - a selected option shows its selected state
