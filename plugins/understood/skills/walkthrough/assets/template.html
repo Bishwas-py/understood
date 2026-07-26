@@ -523,14 +523,17 @@
 	.qa.reply .qa-q::before { content: "\21B3\00a0"; color: var(--accent); font-weight: 700; }
 	/* A thread from a mark to its card. Drawn behind the text at low opacity,
 	   so it reads as a hint rather than a line you have to look past. */
-	#link-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: -1; overflow: visible; }
-	#link-layer path { fill: none; stroke: var(--accent); transition: opacity .25s, stroke-width .25s; }
-	#link-layer .halo { stroke-width: 7; opacity: .07; filter: url(#thread-blur); pointer-events: none; }
-	#link-layer .core { stroke-width: 1; opacity: .16; pointer-events: stroke; }
-	#link-layer g:hover .halo, #link-layer .halo.lit { opacity: .18; stroke-width: 9; }
-	#link-layer g:hover .core, #link-layer .core.lit { opacity: .45; stroke-width: 1.3; }
-	#link-layer .halo.strong { opacity: .3; stroke-width: 11; }
-	#link-layer .core.strong { opacity: .8; stroke-width: 1.6; }
+	#link-layer, #link-layer-over { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+	#link-layer { z-index: -1; }
+	/* a mark inside a block sits on an opaque panel, so its thread rides above it */
+	#link-layer-over { z-index: 4; }
+	#link-layer path, #link-layer-over path { fill: none; stroke: var(--accent); transition: opacity .25s, stroke-width .25s; }
+	#link-layer .halo, #link-layer-over .halo { stroke-width: 7; opacity: .07; filter: url(#thread-blur); pointer-events: none; }
+	#link-layer .core, #link-layer-over .core { stroke-width: 1; opacity: .16; pointer-events: stroke; }
+	#link-layer g:hover .halo, #link-layer-over g:hover .halo, .halo.lit { opacity: .18; stroke-width: 9; }
+	#link-layer g:hover .core, #link-layer-over g:hover .core, .core.lit { opacity: .45; stroke-width: 1.3; }
+	.halo.strong { opacity: .3; stroke-width: 11; }
+	.core.strong { opacity: .8; stroke-width: 1.6; }
 	#hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 	#hl-layer .hl { position: absolute; border-radius: 2px; }
 	#hl-layer .hl.asking { background: var(--hl-asking); }
@@ -634,10 +637,16 @@
 	hlLayer.id = 'hl-layer';
 	const rail = document.createElement('div');
 	rail.id = 'qa-rail';
+	const DEFS = '<defs><filter id="thread-blur" x="-20%" y="-20%" width="140%" height="140%">'
+		+ '<feGaussianBlur stdDeviation="2.6"/></filter></defs>';
 	const linkLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 	linkLayer.id = 'link-layer';
-	linkLayer.innerHTML = '<defs><filter id="thread-blur" x="-20%" y="-20%" width="140%" height="140%">'
-		+ '<feGaussianBlur stdDeviation="2.6"/></filter></defs>';
+	linkLayer.innerHTML = DEFS;
+	const linkOver = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	linkOver.id = 'link-layer-over';
+	linkOver.innerHTML = DEFS;
+	const linkLayers = [linkLayer, linkOver];
+	const eachThread = (sel, fn) => linkLayers.forEach(l => l.querySelectorAll(sel).forEach(fn));
 	// Discussion: a comments section at the end of the page, not a floating box.
 	// A rendered page already carries one, so adopt it; only build it when absent.
 	let discuss = document.getElementById('discuss');
@@ -661,7 +670,7 @@
 		discuss.append(discussH, chatlog, discussBox);
 		mainEl.append(discuss);
 	}
-	document.body.append(linkLayer, hlLayer, rail);
+	document.body.append(linkLayer, hlLayer, rail, linkOver);
 
 	function goDiscuss() {
 		chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -769,7 +778,7 @@
 			const id = card.id.slice(3);
 			const mark = on => {
 				hlLayer.querySelectorAll('.hl[data-qid="' + id + '"]').forEach(h => h.classList.toggle('strong', on));
-				linkLayer.querySelectorAll('path[data-qid="' + id + '"]').forEach(p => p.classList.toggle('strong', on));
+				eachThread('path[data-qid="' + id + '"]', p => p.classList.toggle('strong', on));
 			};
 			hook.addEventListener('mouseenter', () => mark(true));
 			hook.addEventListener('mouseleave', () => mark(false));
@@ -853,9 +862,11 @@
 	}
 	function paintLinks() {
 		const doc = document.documentElement;
-		linkLayer.setAttribute('width', doc.scrollWidth);
-		linkLayer.setAttribute('height', doc.scrollHeight);
-		linkLayer.replaceChildren();
+		for (const layer of linkLayers) {
+			layer.setAttribute('width', doc.scrollWidth);
+			layer.setAttribute('height', doc.scrollHeight);
+			layer.replaceChildren(layer.querySelector('defs'));
+		}
 		for (const [id, range] of askedRanges) {
 			const card = document.getElementById('qa-' + id);
 			if (!card || !rail.contains(card)) continue;
@@ -903,7 +914,10 @@
 			p.setAttribute('class', 'core');
 			p.dataset.qid = id;
 			g.append(halo, p);
-			linkLayer.append(g);
+			// a mark inside a block would be hidden by that block's panel
+			let host = range.commonAncestorContainer;
+			if (host && host.nodeType !== 1) host = host.parentElement;
+			(host && host.closest && host.closest('.blk') ? linkOver : linkLayer).append(g);
 		}
 	}
 
@@ -1195,11 +1209,11 @@
 			card.dataset.via = q.via || '';
 			card.addEventListener('mouseenter', () => {
 				hlLayer.querySelectorAll('.hl[data-qid="' + q.id + '"]').forEach(d => d.classList.add('lit'));
-				linkLayer.querySelectorAll('path[data-qid="' + q.id + '"]').forEach(d => d.classList.add('lit'));
+				eachThread('path[data-qid="' + q.id + '"]', d => d.classList.add('lit'));
 			});
 			card.addEventListener('mouseleave', () => {
 				hlLayer.querySelectorAll('.hl.lit').forEach(d => d.classList.remove('lit'));
-				linkLayer.querySelectorAll('path.lit').forEach(d => d.classList.remove('lit'));
+				eachThread('path.lit', d => d.classList.remove('lit'));
 			});
 			if (q.selection) {
 				const selP = document.createElement('p');

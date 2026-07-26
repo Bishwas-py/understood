@@ -67,7 +67,7 @@ Beauty is not decoration here. A page the reader wants to look at is a page they
 
 **Nothing crosses anything.** A connector line must not run through a label, an arrow must not pass under words, a chip must not collide with the text beside it. When two things must share a spot, give the upper one a plate in the page background.
 
-**Every layer knows its depth.** A highlight paints over text, a connector thread paints under it, a card floats beside it. Anything that would obscure reading belongs behind the text at low opacity, and lifts only on hover.
+**Every layer knows its depth.** A highlight paints over text, a connector thread paints under it, a card floats beside it. Anything that would obscure reading belongs behind the text at low opacity, and lifts only on hover. The exception proves the rule: a thread whose mark sits inside a block would vanish under that block's panel, so it rides above instead. Depth follows what the line has to reach, not a single global choice.
 
 **A pointer glows, it does not bracket.** The handle that ties a card to its text is a soft radial glow at the corner, not a drawn bracket. Hard geometry announces a widget; a glow suggests a place to put the cursor and disappears when it is not wanted. The thread lands in the middle of that glow rather than on the edge beside it, and is drawn as a blurred halo under a hairline core, so it belongs to the same soft family instead of arriving as wire.
 
