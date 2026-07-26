@@ -154,6 +154,8 @@ def serve(path: Path, port: int) -> None:
                     "stop": str(raw.get("stop", ""))[:64],
                     "parent": str(raw.get("parent", ""))[:64],
                     "via": str(raw.get("via", ""))[:16],
+                    "block": str(raw.get("block", ""))[:24],
+                    "part": str(raw.get("part", ""))[:120],
                     "selection": str(raw.get("selection", ""))[:2000],
                     "question": str(raw["question"])[:2000],
                 }

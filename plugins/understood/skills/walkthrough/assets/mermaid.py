@@ -41,7 +41,8 @@ class Node:
         self.rank = 0
         self.x = self.y = 0.0
         self.w = max(74.0, len(self.label) * CHAR_W + PAD_X * 2)
-        self.h = 34.0
+        # a store is a cylinder, so it needs room for the rim above the text
+        self.h = 44.0 if shape == "store" else 34.0
 
 
 def parse(src: str):
@@ -58,6 +59,7 @@ def parse(src: str):
             nodes[key].label = label.strip('"')
             nodes[key].shape = shape
             nodes[key].w = max(74.0, len(nodes[key].label) * CHAR_W + PAD_X * 2)
+            nodes[key].h = 44.0 if shape == "store" else 34.0
         return key
 
     for raw in src.splitlines():
@@ -145,16 +147,26 @@ def shape_svg(n: Node, href: str = "") -> str:
         pts = f"{x + w / 2:.1f},{y:.1f} {x + w:.1f},{y + h / 2:.1f} {x + w / 2:.1f},{y + h:.1f} {x:.1f},{y + h / 2:.1f}"
         return f'<polygon class="nd" points="{pts}"/>{text}'
     if n.shape == "store":
+        # a real cylinder: straight sides, arc across the bottom, full ellipse on top
+        ry, cx = 7.0, x + w / 2
+        sides = (
+            f"M {x:.1f} {y + ry:.1f} V {y + h - ry:.1f} "
+            f"A {w / 2:.1f} {ry:.1f} 0 0 0 {x + w:.1f} {y + h - ry:.1f} V {y + ry:.1f}"
+        )
+        text = f'<text x="{cx:.1f}" y="{y + h / 2 + 6:.1f}" text-anchor="middle">{label}</text>'
         return (
-            f'<rect class="nd store" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="6"/>'
-            f'<line class="ndl" x1="{x:.1f}" y1="{y + 7:.1f}" x2="{x + w:.1f}" y2="{y + 7:.1f}"/>{text}'
+            f'<path class="nd store" d="{sides}"/>'
+            f'<ellipse class="nd store" cx="{cx:.1f}" cy="{y + ry:.1f}" rx="{w / 2:.1f}" ry="{ry:.1f}"/>'
+            f"{text}"
         )
     rx = h / 2 if n.shape in ("round", "stadium", "circle") else 8
     return f'<rect class="nd" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="{rx:.1f}"/>{text}'
 
 
-def wrap(svg: str, href: str) -> str:
-    return f'<a class="nd-a" href="{escape(href, quote=True)}">{svg}</a>' if href else svg
+def wrap(svg: str, href: str, key: str = "") -> str:
+    if not href:
+        return f'<g class="nd-g" data-key="{escape(key, quote=True)}">{svg}</g>' if key else svg
+    return f'<a class="nd-a" data-key="{escape(key, quote=True)}" href="{escape(href, quote=True)}">{svg}</a>' 
 
 
 def edge_svg(a: Node, b: Node, label: str, vertical: bool) -> str:
@@ -195,7 +207,7 @@ def to_svg(src: str, hrefs: dict | None = None) -> str:
     for a, b, label in edges:
         body.append(edge_svg(nodes[a], nodes[b], label, vertical))
     for n in nodes.values():
-        body.append(wrap(shape_svg(n), hrefs.get(n.key, "")))
+        body.append(wrap(shape_svg(n), hrefs.get(n.key, ""), n.key))
     return (
         f'<svg class="mmd" viewBox="0 0 {w:.0f} {h:.0f}" width="{w:.0f}" '
         f'preserveAspectRatio="xMidYMid meet">{"".join(body)}</svg>'

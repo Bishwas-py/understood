@@ -639,7 +639,7 @@
 		if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
 			e.preventDefault();
 			const info = readSelection();
-			if (info) startSpotQuote(info.text, info.range, info.stop);
+			if (info) startSpotQuote(info.text, info.range, info.stop, info.block, info.part);
 			else goDiscuss();
 		} else if (e.key === 'Escape') hideAsk();
 	});
@@ -650,7 +650,8 @@
 		if (!question) return;
 		chatInput.value = '';
 		const quote = discussQuote.take();
-		sendQuestion({ question, quote, stop: quote ? quote.stop || '' : '', via: 'spot' });
+		sendQuestion({ question, quote, stop: quote ? quote.stop || '' : '', via: 'spot',
+			block: quote ? quote.block || '' : '', part: quote ? quote.part || '' : '' });
 	});
 	let savedRange = null;
 	let askingRange = null;
@@ -834,10 +835,17 @@
 		}
 		if (!mainEl.contains(node) && !card) return null;
 		const stop = card ? null : node.closest('ol.steps > li[id]');
+		// Name the component the selection came from, so an answer knows the
+		// reference is "the flow chart" or "the switch", not just loose text.
+		const blk = node.closest ? node.closest('.blk[data-block]') : null;
+		const partEl = node.closest
+			? node.closest('a.nd-a, .nd-g, .hop, .mapnode, .step, .bd, .in, .act, .pt') : null;
 		return {
 			text: text.slice(0, 2000),
 			stop: card ? (card.dataset.stop || '') : (stop ? stop.id : ''),
 			parent: card ? card.id.slice(3) : '',
+			block: blk ? blk.dataset.block : '',
+			part: partEl ? (partEl.dataset.key || partEl.textContent.trim().slice(0, 60)) : '',
 			range: s.getRangeAt(0).cloneRange(),
 			rect: s.getRangeAt(0).getBoundingClientRect(),
 		};
@@ -896,13 +904,13 @@
 		card._quoteSlot.set({ text, range });
 		card.querySelector(':scope > .qa-replybox input').focus();
 	}
-	function startSpotQuote(text, range, stop) {
-		discussQuote.set({ text, range, stop });
+	function startSpotQuote(text, range, stop, block, part) {
+		discussQuote.set({ text, range, stop, block, part });
 		chip.style.display = 'none';
 		goDiscuss();
 	}
 	quoteBtn.addEventListener('click', () => {
-		if (sel) startSpotQuote(sel.text, sel.range, sel.stop);
+		if (sel) startSpotQuote(sel.text, sel.range, sel.stop, sel.block, sel.part);
 		chip.style.display = 'none';
 	});
 
@@ -940,11 +948,11 @@
 	}
 	// Every composer (popover, reply box, discussion) funnels through here:
 	// id minting, range registration, and repaint live in one place.
-	function sendQuestion({ question, quote, stop = '', parent = '', via = '' }) {
+	function sendQuestion({ question, quote, stop = '', parent = '', via = '', block = '', part = '' }) {
 		const id = newId();
 		if (quote && quote.range) askedRanges.set(id, quote.range);
 		askingRange = null;
-		submitQuestion({ id, stop, selection: quote ? quote.text : '', question, parent, via });
+		submitQuestion({ id, stop, selection: quote ? quote.text : '', question, parent, via, block, part });
 		paintHl();
 	}
 
@@ -962,7 +970,7 @@
 		savedRange = null;
 		hideAsk();
 		getSelection().removeAllRanges();
-		sendQuestion({ question, quote, stop: sel.stop, parent: sel.parent || '' });
+		sendQuestion({ question, quote, stop: sel.stop, parent: sel.parent || '', block: sel.block, part: sel.part });
 	});
 
 	function esc(t) { return t.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
