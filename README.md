@@ -8,7 +8,7 @@ Install as a plugin (see below), not by symlinking individual skills.
 
 - **caveman-english** — rewords text into blunt, clipped phrasing (drop articles/pronouns/helper verbs, bare verbs, short plain words, no equation-style symbol stacking). A voice, not a compressor: same structure, same ideas, just leaner wording. See `plugins/understood/skills/caveman-english/SKILL.md`. Invoke with `/caveman-english`.
 - **forward-arrow** — process/flow explanations become `step → step → step` chains, scoped to what was actually asked (one flow by default, more only if explicitly requested). Uses the caveman-english voice for each step's wording, on top of its own flow-finding and chaining. See `plugins/understood/skills/forward-arrow/SKILL.md`. Invoke with `/forward-arrow`.
-- **walkthrough** — builds one self-contained HTML page for presenting a change live to a senior reviewer: numbered stops through the real code in request order, every `file:line` clickable straight into the editor, and two kinds of scannable cue (`KEYWORD` for what a stop is for, `KNOW MORE` for the question it invites). The presenter glances and talks; the page never contains a sentence to read aloud. It detects the editor it is running next to (Cursor first, VS Code as fallback) and the platform it is on, and serves the finished page at `http://walkthrough.localhost:<port>/<slug>/`, a stable secure-context origin, so you hand over a URL rather than a file path and the browser's "open Cursor?" dialog can be allowed once and never asked again. The page also asks back: select any text on it, type a question, and the Claude session that built the walkthrough answers live, pinned under that stop. See `plugins/understood/skills/walkthrough/SKILL.md`. Invoke with `/walkthrough`.
+- **walkthrough** — compiles one json spec into a self-contained HTML page for presenting a change live: stages ordered by the data's journey, every stop a claim with its `file:line` chip, and operable live blocks (switch, chain, dial, race, probe, flow chart, and more) whose controls are the code references themselves. A validator refuses a wrong line number, a navigation-verb headline, or an em-dash before the page is ever served. The reader can select any text and ask; the question reaches the Claude session that built the page and the answer lands beside the words, threaded to them. See `plugins/understood/skills/walkthrough/SKILL.md`. Invoke with `/walkthrough`.
 
 The first two rewrite text the user already has. `walkthrough` is the one pattern that reads a codebase, because a walkthrough is only worth anything if every line number in it is real.
 
@@ -28,10 +28,16 @@ understood/
         caveman-english/SKILL.md
         forward-arrow/SKILL.md
         walkthrough/SKILL.md
-        walkthrough/assets/template.html
-        walkthrough/assets/serve.py
-        walkthrough/assets/editor.py
-        walkthrough/assets/wait_question.py
+        walkthrough/assets/spec.py            shared conventions: chips, refs, escaping
+        walkthrough/assets/validate.py        refuses a lie before it ships
+        walkthrough/assets/render.py          spec -> one self-contained page
+        walkthrough/assets/mermaid.py         flowcharts drawn to svg at build time
+        walkthrough/assets/template.html      the page shell and its runtime
+        walkthrough/assets/blocks.html        reference implementations of every block
+        walkthrough/assets/example.json       a complete working spec
+        walkthrough/assets/serve.py           stable local origin, live reload, /ask
+        walkthrough/assets/wait_question.py   the wake loop
+        walkthrough/assets/editor.py          cursor or vscode probe
 ```
 
 ## Install
