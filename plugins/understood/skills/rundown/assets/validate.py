@@ -186,6 +186,14 @@ def validate(spec: dict) -> Report:
                 for pi2, proof in enumerate(think.get("proofs") or []):
                     check_text(rep, repo, f"{twhere}.proofs[{pi2}]", proof)
 
+    kinds = {
+        (stop.get("block") or {}).get("type")
+        for stage in spec.get("stages") or []
+        for stop in stage.get("stops") or []
+    }
+    if "flow" not in kinds:
+        rep.warn("spec", "no flow chart, so the reader never sees the journey in one picture")
+
     seen_look: set[str] = set()
     for i, rule in enumerate(spec.get("look") or []):
         where = f"look[{i}]"

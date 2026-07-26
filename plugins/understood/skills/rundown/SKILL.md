@@ -133,7 +133,11 @@ rundown blocks race         # what a race takes, and a config to paste
 rundown blocks --demo       # builds a page carrying every block, operable, on real refs
 ```
 
-Paste the example into the stop's `block` and change its facts. The validator holds a config to that same declaration, so a missing key fails the build and a mistyped one is named in the warning rather than rendering a control that does nothing. Pick by what the stop IS:
+Paste the example into the stop's `block` and change its facts. The validator holds a config to that same declaration, so a missing key fails the build and a mistyped one is named in the warning rather than rendering a control that does nothing.
+
+**Draw the journey before anything else.** The stop that carries the whole path from entry to result is a `flow` chart, and every rundown has one unless the change genuinely has no journey in it (a constant retuned, a single guard added). The reader gets the shape of the thing once, in one picture, and every node in it opens the code. The build warns when a rundown has no chart, and that warning is worth answering rather than ignoring.
+
+Then pick the rest by what the stop IS:
 
 | block | fires when the stop is | the reader |
 |---|---|---|
