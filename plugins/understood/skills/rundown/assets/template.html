@@ -926,11 +926,23 @@
 		for (const layer of linkLayers) layer.replaceChildren(layer.querySelector('defs'), frags.get(layer));
 	}
 
+	// A mark is painted over its words, so anything that moves those words has to
+	// move it too: a block growing a line when a hop is clicked, a card opening,
+	// a font arriving late. Watching sizes catches all of them, once per frame.
 	let layoutRaf = null;
-	window.addEventListener('resize', () => {
+	function scheduleRepaint() {
 		if (layoutRaf) return;
 		layoutRaf = requestAnimationFrame(() => { layoutRaf = null; repaintAll(); });
-	});
+	}
+	window.addEventListener('resize', scheduleRepaint);
+	const sizeSpy = new ResizeObserver(scheduleRepaint);
+	sizeSpy.observe(mainEl);
+	document.querySelectorAll('.blk, #chatlog').forEach(el => sizeSpy.observe(el));
+	// Operating a block is the usual way the text under it moves, so the repaint
+	// also hangs off the interaction itself, not only off the size that follows.
+	for (const kind of ['click', 'change', 'input']) {
+		mainEl.addEventListener(kind, e => { if (e.target.closest('.blk')) scheduleRepaint(); }, true);
+	}
 
 	function hideAsk() {
 		chip.style.display = 'none';

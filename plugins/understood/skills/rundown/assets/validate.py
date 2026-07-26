@@ -101,6 +101,24 @@ def check_block(rep: Report, repo: dict, where: str, block: dict) -> None:
     for key in ("label", "title", "caption", "runLabel", "invariant"):
         if isinstance(block.get(key), str):
             check_text(rep, repo, f"{where}.{key}", block[key])
+    if btype == "flow":
+        check_chart(rep, where, block)
+
+
+def check_chart(rep: Report, where: str, block: dict) -> None:
+    """A chart that parses to nothing renders as an empty panel and says nothing
+    about why, so it is refused at build time instead."""
+    import mermaid
+
+    _, nodes, edges = mermaid.parse(block.get("mermaid", ""))
+    if not nodes:
+        rep.error(where, "the mermaid chart has no nodes, check the flowchart line and the shapes")
+        return
+    if not edges and len(nodes) > 1:
+        rep.warn(where, "the chart has nodes but no edges, so nothing points at anything")
+    for key in block.get("refs") or {}:
+        if key not in nodes:
+            rep.warn(where, f"refs.{key} names no node in the chart, so nothing links to it")
 
 
 def check_text(rep: Report, repo: dict, where: str, text: str) -> None:
