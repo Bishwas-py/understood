@@ -30,7 +30,7 @@ What you get:
 - every stop is a claim, with a `file:line` chip that opens your editor at that line
 - live blocks you operate instead of paragraphs you read: flip a switch to take a fix out of the build, run a race with and without the lock, drag a dial past the value that shipped
 - select any text on the page and ask about it. The question reaches the Claude session that built the page, and the answer lands in the margin, threaded to the words you highlighted
-- a claim ledger at the end, generated when you press for it, tickable, with a running count
+- a round of questions at the end. A senior reviewer asks one at a time, deep ones and code ones, you type your answer, it marks you and asks the next. Last turn is a verdict on what you'd actually survive being asked. Take another round whenever you want; the old ones stay on the page
 
 ## Why the rundown doesn't lie to you
 

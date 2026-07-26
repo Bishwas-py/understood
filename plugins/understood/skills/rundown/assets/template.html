@@ -325,18 +325,24 @@
 	svg.mmd .nd-a:hover text { fill: var(--accent); }
 	.blk.flow .cap { margin: .6rem 0 0; color: var(--muted); font-size: .85rem; text-align: center; }
 	/* Claim checks, generated on demand at the end. */
-	#claims .cl { display: flex; gap: .6rem; align-items: baseline; padding: .35rem .4rem; border-radius: 7px; }
-	#claims .cl .tick {
-		flex: 0 0 auto; width: 1.15rem; height: 1.15rem; border: 1px solid var(--line);
-		border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center;
-		justify-content: center; font-size: .72rem; line-height: 1; color: transparent;
-		transition: border-color .15s, background .15s, color .15s;
+	#viva .turn { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+	#viva .turn:last-child { border-bottom: 0; }
+	#viva .q { font-weight: 600; }
+	#viva .said { color: var(--muted); border-left: 2px solid var(--line); padding-left: .6rem; margin: .35rem 0 0; }
+	#viva .mark { margin: .35rem 0 0; }
+	#viva .mark.held { color: var(--ba-good-fg); }
+	#viva .mark.thin { color: var(--ba-bad-fg); }
+	#viva .verdict-panel { margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--line); }
+	#viva .verdict-panel h3 { margin: 0 0 .3rem; font-size: .95rem; }
+	#viva-ask { padding: .6rem .9rem .9rem; border-top: 1px solid var(--line); }
+	#viva-ask textarea {
+		width: 100%; background: var(--code-bg); color: var(--fg); resize: vertical;
+		border: 1px solid var(--line); border-radius: 9px; padding: .5rem .6rem;
+		font: inherit; font-size: .92rem;
 	}
-	#claims .cl .tick::after { content: "\2713"; }
-	#claims .cl .tick:hover { border-color: var(--accent); color: var(--muted); }
-	#claims .cl.done .tick { border-color: var(--ba-good-fg); background: var(--ba-good); color: var(--ba-good-fg); }
-	#claims .cl.done .txt { opacity: .5; }
-	#cl-score { font-weight: 600; color: var(--accent); margin-left: auto; }
+	#viva-ask textarea:focus { outline: none; border-color: var(--accent); }
+	.viva-row { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; }
+	#viva-count { font-weight: 600; color: var(--accent); margin-left: auto; }
 	/* Before the checks exist there is nothing to frame: the button stands alone. */
 	.blk.bare.empty { border: 0; background: none; box-shadow: none; }
 	.blk.bare.empty .blk-head { border: 0; background: none; padding-left: 0; }
@@ -628,8 +634,6 @@
 
 	let sel = null;
 	const pendingSince = {};
-	const claimWaiters = {};
-	const renderedClaims = {};
 	let pollTimer = null;
 
 	// Keep the selection painted while the input has focus, flip it yellow once sent.
@@ -1191,15 +1195,8 @@
 
 	function upsertCard(q, answer, rebind) {
 		let changed = false;
-		if (q.via === 'ledger') {
-			if (answer !== undefined && !renderedClaims[q.id]) {
-				renderedClaims[q.id] = true;
-				if (window.__renderClaims) window.__renderClaims(answer);
-				if (claimWaiters[q.id]) { claimWaiters[q.id](); delete claimWaiters[q.id]; }
-				return true;
-			}
-			return false;
-		}
+		// A round of questions belongs in its own section, not in the margin
+		if (q.via === 'viva') return false;
 		let card = document.getElementById('qa-' + q.id);
 		if (!card) {
 			changed = true;
@@ -1365,6 +1362,7 @@
 				if (answers[q.id] === undefined) pending = true;
 			}
 			changed = restoreRanges(d.questions, rebinds) > 0 || changed;
+			if (window.__viva) window.__viva(d.questions, answers);
 			if (pending) startPolling(); else stopPolling();
 			if (changed) repaintAll();
 		} catch (e) { /* server gone; leave the cards as they are */ }
@@ -1592,44 +1590,122 @@
 		try { fn(el, cfg); } catch (e) { console.error('block ' + kind, e); }
 	});
 
-	// Claim checks: the button asks the session to generate them, the answer's
-	// bullets become tickable rows. Generated at the end, never at build time.
-	const genBtn = document.getElementById('gen-claims');
-	if (genBtn) {
-		const clBody = document.getElementById('cl-body'), clScore = document.getElementById('cl-score');
-		const rescore = () => {
-			const rows = [...clBody.querySelectorAll('.cl')];
-			clScore.textContent = rows.length
-				? rows.filter(r => r.classList.contains('done')).length + ' of ' + rows.length + ' confirmed' : '';
+	// The questions: a reviewer asks one at a time, the reader answers, and the
+	// last turn is a verdict. Every turn is a record in the same two files the
+	// rest of the page uses, so a round survives a reload and an old round can
+	// be read back beside the new one.
+	const viva = document.getElementById('viva-blk');
+	if (viva) {
+		const startBtn = document.getElementById('viva-start');
+		const body = document.getElementById('viva-body');
+		const askBox = document.getElementById('viva-ask');
+		const input = document.getElementById('viva-input');
+		const count = document.getElementById('viva-count');
+		const drawn = new Set();
+		let waitingOn = null;
+
+		const el = (cls, text) => {
+			const n = document.createElement('div');
+			n.className = cls;
+			if (text !== undefined) n.innerHTML = text;
+			return n;
 		};
-		const wire = () => {
-			clBody.querySelectorAll('.cl .tick').forEach(t => t.addEventListener('click', () => {
-				t.closest('.cl').classList.toggle('done');
-				rescore();
-			}));
-			rescore();
+		const roundHead = n => {
+			const h = el('turn round', '<b>round ' + n + '</b>');
+			h.querySelector('b').style.color = 'var(--accent)';
+			return h;
 		};
-		wire();
-		genBtn.addEventListener('click', () => {
-			genBtn.disabled = true;
-			genBtn.textContent = 'generating…';
+		// "ask:" is the next question, "verdict:" ends the round. Everything else
+		// on the way is the reviewer marking what was just said.
+		const readTurn = text => {
+			const ask = [], verdict = [], mark = [];
+			let done = false;
+			for (const line of String(text).split('\n')) {
+				const t = line.trim();
+				if (/^ask:/i.test(t)) { ask.push(t.slice(4).trim()); continue; }
+				if (/^verdict:/i.test(t)) { done = true; verdict.push(t.slice(8).trim()); continue; }
+				(done ? verdict : mark).push(line);
+			}
+			return { ask: ask.join(' '), verdict: verdict.join('\n').trim(), mark: mark.join('\n').trim(), done };
+		};
+		const setAsking = on => {
+			askBox.hidden = !on;
+			if (on) input.focus();
+		};
+		const setBusy = on => {
+			startBtn.disabled = on;
+			document.getElementById('viva-send').disabled = on;
+			document.getElementById('viva-stop').disabled = on;
+		};
+		const send = text => {
 			const id = newId();
-			claimWaiters[id] = () => { genBtn.disabled = false; };
-			submitQuestion({
-				id, stop: '', selection: '', parent: '', via: 'ledger',
-				question: 'generate the claim checks for this page, one claim per bullet, each with its file:line chip',
-			});
+			waitingOn = id;
+			setAsking(false);
+			setBusy(true);
+			submitQuestion({ id, stop: '', selection: '', parent: '', via: 'viva', question: text });
+			viva.classList.remove('empty');
+			body.append(el('turn thinking', '<span class="qa-status">thinking…</span>'));
+		};
+
+		startBtn.addEventListener('click', () => {
+			startBtn.textContent = 'another round';
+			send('start a round of questions');
 		});
-		window.__renderClaims = (answer) => {
-			const rows = answer.split('\n').map(l => l.trim()).filter(l => l.startsWith('- '));
-			if (!rows.length) return;
-			clBody.innerHTML = rows.map(l =>
-				'<div class="cl"><span class="tick"></span><span class="txt">' + inline(esc(l.slice(2))) + '</span></div>'
-			).join('');
-			document.getElementById('claims-blk').classList.remove('empty');
-			genBtn.classList.remove('primary');
-			genBtn.textContent = 'regenerate';
-			wire();
+		document.getElementById('viva-send').addEventListener('click', () => {
+			const text = input.value.trim();
+			if (!text) return;
+			input.value = '';
+			send(text);
+		});
+		document.getElementById('viva-stop').addEventListener('click', () => {
+			setAsking(false);
+			send('that is enough, give me the verdict');
+		});
+		input.addEventListener('keydown', e => {
+			if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('viva-send').click(); }
+		});
+
+		// Rebuilt from the records, so reloading mid-round loses nothing and the
+		// rounds before this one stay on the page under their own headings.
+		window.__viva = (questions, answers) => {
+			let round = 0, asked = 0;
+			for (const q of questions) {
+				if (q.via !== 'viva') continue;
+				const answer = answers[q.id];
+				const opener = /^start a round/i.test(q.question);
+				if (opener) round++;
+				if (!drawn.has(q.id)) {
+					drawn.add(q.id);
+					viva.classList.remove('empty');
+					body.querySelectorAll('.turn.thinking').forEach(n => n.remove());
+					if (opener) body.append(roundHead(round));
+					else body.append(el('turn said', esc(q.question)));
+				}
+				if (answer === undefined) {
+					if (!body.querySelector('.turn.thinking')) {
+						body.append(el('turn thinking', '<span class="qa-status">thinking…</span>'));
+					}
+					waitingOn = q.id;
+					setAsking(false);
+					setBusy(true);
+					continue;
+				}
+				if (!drawn.has(q.id + ':a')) {
+					drawn.add(q.id + ':a');
+					body.querySelectorAll('.turn.thinking').forEach(n => n.remove());
+					const turn = readTurn(answer);
+					if (turn.mark) body.append(el('turn mark', renderAnswer(turn.mark)));
+					if (turn.ask) body.append(el('turn q', inline(esc(turn.ask))));
+					if (turn.verdict) {
+						const panel = el('turn verdict-panel', '<h3>verdict</h3>' + renderAnswer(turn.verdict));
+						body.append(panel);
+					}
+				}
+				const turn = readTurn(answer);
+				if (turn.ask) { asked++; waitingOn = null; setBusy(false); setAsking(true); }
+				if (turn.done) { waitingOn = null; setBusy(false); setAsking(false); }
+			}
+			count.textContent = asked ? asked + (asked === 1 ? ' question' : ' questions') : '';
 		};
 	}
 

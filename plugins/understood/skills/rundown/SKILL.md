@@ -15,7 +15,7 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 
 - a pipeline block first: the whole journey in arrow lines, one real record from an actual run riding along, every line stamped with where it lives (`#page`, `#server`, ...)
 - stages down the middle ordered by the data's journey, each stop a place to put the cursor
-- a claim-checks section at the end, generated on demand, each row tickable with a running count
+- a round of questions at the end: a senior reviewer asks one at a time, the reader types the answer, and the last turn is a verdict on what they actually hold
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
 - every path and every bare line number is a link that opens the editor at that exact line
 - live blocks inside the stops: operable components (a switch, a dial, a chain) whose control surface is a code reference; understanding is operated, not read
@@ -195,11 +195,39 @@ And decisions render as state pairs, in their own late section, only the 2 or 3 
 
 All of these classes (`io`, `pipe`, `rec`, `where`, `tag`, `ba`) ship in the template's stylesheet; write the markup, never inline styles.
 
-## Claim checks, not decisions
+## The questions at the end
 
-The page ends with a claim ledger, generated on demand rather than written at build time. The reader presses a button when they are done, the question travels the ask loop with `"via": "ledger"`, and you answer with one bullet per claim, each carrying its chip. The page turns those bullets into tickable rows with a running count.
+The page closes with a round of questions, not a summary. The reader presses **take the questions** when they have finished reading, and you become the senior reviewer on the other side of the call: you ask one question, they type an answer, you mark it and ask the next, and at the end you say plainly what they know and what would catch them out.
 
-Generate them from what the page actually claimed **and how far the reader took the conversation**: the stops they questioned deserve their claims spelled out, the ones they never touched can stay compressed. Before the button is pressed the section shows only the button, no empty frame.
+Every turn travels the ask loop with `"via": "viva"`, so the whole round lives in the same two files as everything else. Rounds stack: a reader can take another one, and the earlier rounds stay on the page under their own headings.
+
+**Two markers drive it.** A line starting `ask:` is the next question. A line starting `verdict:` ends the round. Anything else in the answer is you marking what they just said, so a normal turn is one or two lines of marking followed by one `ask:`.
+
+```
+close, but the gate runs before any mapping is read, not after
+ask: which line writes the not-found row, and why write it at all instead of omitting the field?
+```
+
+and the last turn:
+
+```
+verdict: 4 of 6 held
+- solid on the gate, you reached for {formmap.go:50} without being pointed at it
+- thin on concurrency: you would get caught on why the lock sits at row level and not on the filing
+- unasked but worth knowing: the retry path, which this page never opens
+```
+
+**Ask like someone who has read the code, not a quizmaster.** Mix the three kinds, roughly in this order:
+
+1. **Conceptual.** Why does this hold? What breaks if it does not? "What stops two edits landing on the same row?"
+2. **Code-specific.** Name the line, the return, the field. "Which call refuses a late edit, and what does the caller see?"
+3. **Adversarial.** The thing a reviewer would actually push on. "I say this whole gate is premature optimisation. Convince me."
+
+Six questions is a full round, three is enough if they are answering thinly and clearly want out. Tune to what they engaged with: the stops they questioned deserve harder questions, and a stop they never touched is fair game for an easy one.
+
+**Mark honestly.** "Close, but" beats "great". If they are wrong, say what is actually true and move on, no lecture. If they nail it, one word and the next question. Never award points for confidence.
+
+The verdict is the same shape as the rest of the page: claims with their evidence. What they hold, what they would get caught on, and one thing worth knowing that never came up. Chips wherever pointing beats describing.
 
 ## Language rules
 
@@ -418,7 +446,7 @@ If port `8477` is busy, `serve.py` walks up to the next free port and says so on
 
 ## Optional closing sections
 
-The claim checks close the page. These come before them, and only if they carry weight:
+The questions close the page. These come before them, and only if they carry weight:
 
 - **Spare tabs** — what to have open in case a question goes sideways, usually the tests and the diff
 - **If they push** — the two or three points most likely to be challenged, each with its one-line answer

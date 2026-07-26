@@ -374,26 +374,26 @@ def answer_html(repo: dict, text: str) -> str:
     return "".join(out)
 
 
-def ledger_html(spec: dict) -> str:
-    rows = spec.get("ledger")
-    body = ""
-    if rows:
-        body = "".join(
-            f'<div class="cl"><span class="tick"></span><span class="txt">'
-            f'{inline(spec["repo"], r["claim"])}</span></div>'
-            for r in rows
-        )
-    # Nothing to frame until the checks exist: just the button, then the card.
-    empty = " empty" if not rows else ""
-    return (
-        '<section id="claims"><h2>Claim checks <span class="hint">'
-        'generated from this page and how far you took the conversation</span></h2>'
-        f'<div class="blk bare{empty}" id="claims-blk"><div class="blk-head">'
-        '<button id="gen-claims" class="btn primary" type="button">generate the checks</button>'
-        '<span id="cl-score"></span></div>'
-        f'<div class="blk-body" id="cl-body">{body}</div></div></section>'
-    )
+def viva_html(spec: dict) -> str:
+    """The closing section: a reviewer asks, the reader answers, one at a time.
 
+    Nothing is written at build time. The reader presses the button when they
+    are done reading, and the questions come from what this page claimed and
+    how far they took the conversation.
+    """
+    return (
+        '<section id="viva"><h2>The questions <span class="hint">'
+        'a senior reviewer, one question at a time, then an honest verdict</span></h2>'
+        '<div class="blk bare empty" id="viva-blk"><div class="blk-head">'
+        '<button id="viva-start" class="btn primary" type="button">take the questions</button>'
+        '<span id="viva-count"></span></div>'
+        '<div class="blk-body" id="viva-body"></div>'
+        '<div class="viva-ask" id="viva-ask" hidden>'
+        '<textarea id="viva-input" rows="2" placeholder="your answer, then Enter"></textarea>'
+        '<div class="viva-row"><button id="viva-send" class="btn primary" type="button">answer</button>'
+        '<button id="viva-stop" class="btn" type="button">that is enough</button>'
+        '<span class="hint">shift+Enter for a new line</span></div></div></div></section>'
+    )
 
 def nav_html(spec: dict) -> str:
     out = ['<nav id="toc"><p class="toc-title">', esc(spec.get("navTitle", "stops")), "</p><ol>"]
@@ -405,7 +405,7 @@ def nav_html(spec: dict) -> str:
             label = ref_label(ref) if ref else stop["id"]
             out.append(f'<li><a href="#{esc(stop["id"])}">{esc(label)}</a></li>')
         out.append("</ol>")
-    out.append('<li><a class="sec" href="#claims">claim checks</a></li>')
+    out.append('<li><a class="sec" href="#viva">the questions</a></li>')
     out.append('<li><a class="sec" href="#discuss">discussion</a></li>')
     out.append("</ol></nav>")
     return "".join(out)
@@ -419,7 +419,7 @@ def body_html(spec: dict) -> str:
         parts.append(f'<h2 id="{esc(stage["id"])}">{esc(stage.get("title", ""))}{tag}</h2>')
         stops = "".join(stop_html(repo, s) for s in stage.get("stops", []))
         parts.append(f'<ol class="steps">{stops}</ol>')
-    parts.append(ledger_html(spec))
+    parts.append(viva_html(spec))
     parts.append(discussion_html(repo, spec.get("discussion") or []))
     return "\n".join(parts)
 
