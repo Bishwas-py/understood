@@ -15,7 +15,7 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 
 - a pipeline block first: the whole journey in arrow lines, one real record from an actual run riding along, every line stamped with where it lives (`#page`, `#server`, ...)
 - stages down the middle ordered by the data's journey, each stop a place to put the cursor
-- a decisions section, BEFORE/AFTER pairs, only the 2 or 3 that matter
+- a claim-checks section at the end, generated on demand, each row tickable with a running count
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
 - every path and every bare line number is a link that opens the editor at that exact line
 - live blocks inside the stops: operable components (a switch, a dial, a chain) whose control surface is a code reference; understanding is operated, not read
@@ -103,6 +103,24 @@ Nothing else. No KEYWORD, no KNOW MORE, no IN/OUT boxes, no labels about the pag
 </li>
 ```
 
+### Think lines
+
+Under the block, at most two lines, each one `{claim, proofs}`. They are a real bullet list in a hand (Noteworthy), because these are the lines the reader copies into paper notes; code chips stay monospace so an identifier survives the copy.
+
+```json
+"think": [
+  { "claim": "a late instance is refused",
+    "proofs": ["{extraction_edit.go:107} returns a 400, never a phantom write"] },
+  { "claim": "edits cannot overwrite each other",
+    "proofs": ["the lock lives in {submission_extractions.sql:19}",
+               "the test fires 8 concurrent edits, all 8 land"] }
+]
+```
+
+One proof renders flat, `claim -> proof` on a single line. Two or more nest, the claim on top and the proofs beneath. **The proof count decides the shape, never the author.**
+
+**The bold line is always a claim, never a location.** "the lock lives in `x.sql:19`" is an address; "edits cannot overwrite each other" is a finding, and the address drops to being one of its proofs. This is the headline rule applied one level down, and the validator enforces it.
+
 ### The live blocks
 
 Reference implementations for every block live in `assets/blocks.html`; copy the matching one and adapt its facts, refs, and element ids (namespace ids per stop). Pick by what the stop IS:
@@ -162,6 +180,12 @@ And decisions render as state pairs, in their own late section, only the 2 or 3 
 
 All of these classes (`io`, `pipe`, `rec`, `where`, `tag`, `ba`) ship in the template's stylesheet; write the markup, never inline styles.
 
+## Claim checks, not decisions
+
+The page ends with a claim ledger, generated on demand rather than written at build time. The reader presses a button when they are done, the question travels the ask loop with `"via": "ledger"`, and you answer with one bullet per claim, each carrying its chip. The page turns those bullets into tickable rows with a running count.
+
+Generate them from what the page actually claimed **and how far the reader took the conversation**: the stops they questioned deserve their claims spelled out, the ones they never touched can stay compressed. Before the button is pressed the section shows only the button, no empty frame.
+
 ## Language rules
 
 **Match the reviewer's level.** A senior reviewer, often the person who designed the system. Explaining fundamentals to them is condescending and it costs trust. Use the real term.
@@ -211,7 +235,20 @@ Built from the document, not hand-maintained.
 
 ## Build order
 
-1. Copy `assets/template.html`, replace `{{TITLE}}`, `{{SUBTITLE}}`, `{{NAV}}`, `{{BODY}}`, `{{SKILLS}}`.
+**Write a spec, do not write html.** The page is compiled from one json file, and the renderer owns every tag, id, and class:
+
+```bash
+python3 assets/validate.py ~/Downloads/<slug>.json     # fails on a wrong line, a nav-verb headline, an em-dash
+python3 assets/render.py   ~/Downloads/<slug>.json ~/Downloads/<slug>.html
+```
+
+The spec holds `repo` (root, sha, editor), `pipeline`, `stages` of `stops` (headline, ref, block, think), `discussion`, and `skills`. `assets/example.json` is a complete working one. Refs are `{path, symbol, line, pattern}`; the pattern is the authority, since a symbol's first occurrence is usually a call site. Chips are written `{file.go:50}` in any text field and come out as editor anchors. Records go in raw and the page pretty-prints them.
+
+Validate until clean, then render, then serve. A failing validate is a build error, not a warning: it means a line number in the page is a lie.
+
+Hand-authoring html from `assets/template.html` still works for a one-off, but nothing checks it, so prefer the spec.
+
+1. (legacy path) Copy `assets/template.html`, replace `{{TITLE}}`, `{{SUBTITLE}}`, `{{NAV}}`, `{{BODY}}`, `{{SKILLS}}`.
    `{{SKILLS}}` is a JSON array powering the `/` dropdown in the page's ask box: `[{"name": "caveman-english", "hint": "blunt clipped rewording"}, ...]`, hint being the first clause of the skill's description, under 60 chars.
    Curate it from the session's live skill list, never a hardcoded set. Include a skill only if it acts on words: takes the selection (or the question) as text and produces a card answer, rewording, condensing, explaining, translating. Everything code-shaped stays out: skills that generate or edit code, review diffs, run tests or the app, build pages, or touch infrastructure, including `walkthrough` itself. The test is the presenter mid-call: if the skill could not finish as 2 to 4 bullets on the card while they keep talking, it does not belong in the menu. Left unreplaced it degrades to no dropdown, nothing breaks.
 2. Write the body: the pipeline block, then the stages (each stop with its live block, copied from `assets/blocks.html` and adapted), then the decisions, then any closing sections.
