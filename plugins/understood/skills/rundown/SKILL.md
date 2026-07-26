@@ -362,10 +362,11 @@ Run it in the background, read the URL from its output, hand that to the user. S
 The page asks back. Selecting text on it floats an **Ask** chip; the question lands in `.rundown/<slug>/questions.jsonl` (serve.py prints both file paths on stderr). Serving is not finished until you are listening:
 
 ```bash
-python3 assets/wait_question.py .rundown/<slug>/questions.jsonl .rundown/<slug>/answers.jsonl
+python3 assets/cli.py watch <slug>              # blocks until someone asks, prints it, exits
+python3 assets/cli.py watch <slug> --status     # who is listening, and what is unanswered
 ```
 
-Run that in the background too. It blocks until a question has no answer, prints the pending question(s) as JSON lines (`id`, `stop`, `selection`, `question`), and exits; that exit is your wake-up. Answer it, then restart the waiter. Append the answer with the same helper, text on stdin:
+Run that in the background too. It blocks until a question has no answer, prints the pending question(s) as JSON lines (`id`, `stop`, `selection`, `question`), and exits; that exit is your wake-up. Append the answer with the same helper, text on stdin, and a fresh watcher goes back in place on its own:
 
 ```bash
 python3 assets/wait_question.py <q.jsonl> <a.jsonl> --answer <id> <<'EOF'
@@ -420,7 +421,13 @@ Any other fence renders as a code block. Records and payloads go in plain backti
 
 A question starting with `/skill-name` is a skill invocation: invoke that skill and apply it to the selection (or to composing the answer), same as if the user typed it in the terminal. The page's `/` dropdown offers the skills you embedded via `{{SKILLS}}`. If someone hand-types a skill you excluded (code-editing, review, anything that cannot finish as a card), do not run it; say on the card what it does and why it needs the terminal instead.
 
-Keep the watch loop running until the user says stop. Questions asked while nobody is listening queue in the file and the card says so; answer them whenever the user brings the rundown back up.
+Keep the watch loop running until the user says stop. Three things keep it that way, and they are worth knowing because a reader talking to nobody is the worst way this fails:
+
+- answering rearms it, so the two things that always happen together are one action
+- a live watcher touches a `watching` file every few seconds, which the page reads through `qa.json`. A card says "nobody is listening right now" only when that is true, never as a guess about how long an answer is taking
+- a `Stop` hook checks every rundown in the repo when a turn ends and refuses to let it finish while a question is unanswered, so a watcher that was killed costs a delay rather than a question
+
+A question asked while nobody listens still queues in the file and is answered whenever the rundown comes back up.
 
 ## Read the system before you write the file
 

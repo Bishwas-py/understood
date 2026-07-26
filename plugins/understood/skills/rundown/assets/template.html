@@ -635,6 +635,7 @@
 	let sel = null;
 	const pendingSince = {};
 	let pollTimer = null;
+	let sessionListening = null;
 
 	// Keep the selection painted while the input has focus, flip it yellow once sent.
 	// Overlay rectangles merged per line, so the band is continuous like a native
@@ -703,6 +704,10 @@
 	let savedRange = null;
 	let askingRange = null;
 	const askedRanges = new Map();
+
+	// Anything that paints its own background: a thread to a mark inside one has
+	// to ride above the text instead of under it, or the panel swallows it.
+	const OPAQUE = '.blk, .pipe, .qa, .rec, pre';
 
 	function lineBands(range) {
 		const lines = [];
@@ -922,10 +927,10 @@
 			p.setAttribute('class', 'core');
 			p.dataset.qid = id;
 			g.append(halo, p);
-			// a mark inside a block would be hidden by that block's panel
+			// a mark inside a panel would be hidden by that panel's own background
 			let host = range.commonAncestorContainer;
 			if (host && host.nodeType !== 1) host = host.parentElement;
-			frags.get(host && host.closest && host.closest('.blk') ? linkOver : linkLayer).append(g);
+			frags.get(host && host.closest && host.closest(OPAQUE) ? linkOver : linkLayer).append(g);
 		}
 		for (const layer of linkLayers) layer.replaceChildren(layer.querySelector('defs'), frags.get(layer));
 	}
@@ -945,7 +950,7 @@
 	// Operating a block is the usual way the text under it moves, so the repaint
 	// also hangs off the interaction itself, not only off the size that follows.
 	for (const kind of ['click', 'change', 'input']) {
-		mainEl.addEventListener(kind, e => { if (e.target.closest('.blk')) scheduleRepaint(); }, true);
+		mainEl.addEventListener(kind, e => { if (e.target.closest(OPAQUE)) scheduleRepaint(); }, true);
 	}
 
 	function hideAsk() {
@@ -1266,9 +1271,12 @@
 				card.querySelector('.qa-status').textContent = '';
 			}
 		} else {
+			// the server knows whether a waiter is alive, so say which it is
 			if (!(q.id in pendingSince)) pendingSince[q.id] = Date.now();
 			const waited = Date.now() - pendingSince[q.id];
-			setStatus(q.id, waited > 60000 ? 'queued, no session listening; it stays saved' : 'answering…');
+			setStatus(q.id, sessionListening === false
+				? 'nobody is listening right now; it stays saved and gets answered next session'
+				: (waited > 60000 ? 'still waiting, it stays saved' : 'answering…'));
 		}
 		return changed;
 	}
@@ -1349,6 +1357,7 @@
 		try {
 			const r = await fetch('qa.json', { cache: 'no-store' });
 			const d = await r.json();
+			sessionListening = d.watching === undefined ? null : d.watching;
 			const answers = {}, rebinds = {};
 			for (const a of d.answers) {
 				// a later record may carry only a rebind, and must not blank the answer

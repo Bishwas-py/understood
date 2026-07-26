@@ -1,0 +1,17 @@
+{
+  "description": "Never let a turn end while a reader is waiting on an answer",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/skills/rundown/hooks/pending.py"],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

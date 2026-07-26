@@ -9,6 +9,8 @@
     rundown verify ask-loop          validate only, nothing written
     rundown path  ask-loop           print its folder
     rundown rm    ask-loop --force   delete it and its conversation
+    rundown watch ask-loop           block until a reader asks, print it, exit
+    rundown watch ask-loop --status  who is listening, and what is unanswered
     rundown blocks race              what a race takes, and one to paste
     rundown blocks --demo            a page carrying every block, operable
     rundown install                  install or update the Claude Code plugin
@@ -126,6 +128,29 @@ def cmd_rm(args) -> int:
 
 def cmd_serve(args) -> int:
     return serve_mod.run(args.slug, args.port, args.open)
+
+
+def cmd_watch(args) -> int:
+    """Block until a reader is waiting, print what they asked, and exit.
+
+    That exit is the wake-up. Answering rearms it, and a Stop hook catches
+    anything that slipped through, so a dead watcher costs a delay and never a
+    question.
+    """
+    import wait_question
+
+    home = store.Home(args.slug)
+    if not home.exists():
+        print(f"no rundown named {args.slug}", file=sys.stderr)
+        return 1
+    if args.status:
+        alive = wait_question.watching(home.questions)
+        waiting = wait_question.pending_questions(home.questions, home.answers)
+        print(f"{'listening' if alive else 'nobody listening'}, {len(waiting)} unanswered")
+        for q in waiting:
+            print(f'  {q["id"][:8]}: {q.get("question", "")[:100]}')
+        return 0
+    return wait_question.wait(home.questions, home.answers, 0.5)
 
 
 def cmd_blocks(args) -> int:
@@ -326,6 +351,11 @@ def main() -> int:
     p.add_argument("slug")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_rm)
+
+    p = subs.add_parser("watch", help="block until a reader asks, print it, exit")
+    p.add_argument("slug")
+    p.add_argument("--status", action="store_true", help="say who is listening and what is unanswered, then exit")
+    p.set_defaults(fn=cmd_watch)
 
     p = subs.add_parser("blocks", help="what each block takes, with a paste-ready example")
     p.add_argument("type", nargs="?", help="one block name, or nothing for all of them")

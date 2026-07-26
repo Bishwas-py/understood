@@ -269,8 +269,15 @@ def serve(site, port: int) -> None:
                 if not questions:
                     self.reply(404)
                     return
+                import wait_question
+
                 payload = json.dumps(
-                    {"questions": read_jsonl(questions), "answers": read_jsonl(answers)},
+                    {
+                        "questions": read_jsonl(questions),
+                        "answers": read_jsonl(answers),
+                        # so the page can say nobody is listening instead of guessing
+                        "watching": wait_question.watching(questions),
+                    },
                     ensure_ascii=False,
                 ).encode("utf-8")
                 self.reply(200, payload, "application/json; charset=utf-8")
