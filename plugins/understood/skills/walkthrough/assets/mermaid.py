@@ -30,9 +30,9 @@ EDGE_RE = re.compile(
 )
 SHAPES = {"[": "box", "(": "round", "([": "stadium", "[(": "store", "{": "diamond", "((": "circle"}
 
-CHAR_W = 7.2
-PAD_X, PAD_Y = 14, 10
-GAP_RANK, GAP_SIB = 58, 26
+CHAR_W = 7.8
+PAD_X, PAD_Y = 20, 12
+GAP_RANK, GAP_SIB = 66, 30
 
 
 class Node:
@@ -40,9 +40,18 @@ class Node:
         self.key, self.label, self.shape = key, label or key, shape
         self.rank = 0
         self.x = self.y = 0.0
-        self.w = max(74.0, len(self.label) * CHAR_W + PAD_X * 2)
-        # a store is a cylinder, so it needs room for the rim above the text
-        self.h = 44.0 if shape == "store" else 34.0
+        self.size()
+
+    def size(self) -> None:
+        """A diamond only reaches full width at its middle, so text inside it needs
+        roughly twice the room a box does. Give every shape air where there is space."""
+        text_w = len(self.label) * CHAR_W + PAD_X * 2
+        if self.shape == "diamond":
+            self.w, self.h = max(150.0, text_w * 1.75), 66.0
+        elif self.shape == "store":
+            self.w, self.h = max(96.0, text_w), 52.0
+        else:
+            self.w, self.h = max(96.0, text_w), 42.0
 
 
 def parse(src: str):
@@ -58,8 +67,7 @@ def parse(src: str):
         elif label:
             nodes[key].label = label.strip('"')
             nodes[key].shape = shape
-            nodes[key].w = max(74.0, len(nodes[key].label) * CHAR_W + PAD_X * 2)
-            nodes[key].h = 44.0 if shape == "store" else 34.0
+            nodes[key].size()
         return key
 
     for raw in src.splitlines():
@@ -116,7 +124,7 @@ def layout(direction: str, nodes: dict, edges: list) -> tuple[float, float]:
                 n.x, n.y = x, cursor
                 x += n.w + GAP_SIB
             width_needed = max(width_needed, span + 40)
-            cursor += 34 + GAP_RANK
+            cursor += max(n.h for n in row) + GAP_RANK
         else:
             span = sum(n.h for n in row) + GAP_SIB * (len(row) - 1)
             y = 20.0
@@ -179,7 +187,7 @@ def edge_svg(a: Node, b: Node, label: str, vertical: bool) -> str:
             mid = (side + 6, (a.y + b.y) / 2)
         else:
             path = f"M {x1:.1f} {y1:.1f} C {x1:.1f} {y1 + 24:.1f} {x2:.1f} {y2 - 24:.1f} {x2:.1f} {y2:.1f}"
-            mid = ((x1 + x2) / 2 + 6, (y1 + y2) / 2)
+            mid = ((x1 + x2) / 2, (y1 + y2) / 2 + 4)
     else:
         x1, y1 = a.x + a.w, a.y + a.h / 2
         x2, y2 = b.x, b.y + b.h / 2
@@ -187,7 +195,10 @@ def edge_svg(a: Node, b: Node, label: str, vertical: bool) -> str:
         mid = ((x1 + x2) / 2, (y1 + y2) / 2 - 6)
     out = f'<path class="eg" d="{path}" marker-end="url(#mmar)"/>'
     if label:
+        lw = len(label) * 6.0 + 14
         out += (
+            f'<rect class="elbg" x="{mid[0] - lw / 2:.1f}" y="{mid[1] - 11:.1f}" '
+            f'width="{lw:.1f}" height="16" rx="8"/>'
             f'<text class="el" x="{mid[0]:.1f}" y="{mid[1]:.1f}" text-anchor="middle">{escape(label)}</text>'
         )
     return out

@@ -57,6 +57,24 @@ Pick the format by situation, never by habit:
 | a decision | switch or dial block; BEFORE/AFTER pair for minor ones |
 | something that may need depth | one line now; depth lives in the ask loop, the reader pulls it |
 
+## Craft: the page has to be worth looking at
+
+Beauty is not decoration here. A page the reader wants to look at is a page they keep looking at, and a walkthrough only works while someone is still reading it. Every rule below came from a real defect on a real page.
+
+**Use the space you have.** If there is room, take it: wider nodes, more padding, longer line length. Crowded output reads as unfinished. A diamond only reaches full width at its middle, so text inside one needs roughly twice the room a box does; a cylinder needs height for its rim. Measure the shape, not the string.
+
+**Nothing crosses anything.** A connector line must not run through a label, an arrow must not pass under words, a chip must not collide with the text beside it. When two things must share a spot, give the upper one a plate in the page background.
+
+**Every layer knows its depth.** A highlight paints over text, a connector thread paints under it, a card floats beside it. Anything that would obscure reading belongs behind the text at low opacity, and lifts only on hover.
+
+**One weight of ink per idea.** A state label is a small pill, not a heading. A claim is bold, its proof is plain, a code chip is monospace. If two things look equally loud, the reader has to decide what matters, which is the job the page was supposed to do.
+
+**Degrade visibly, never silently.** A card whose text was edited says so. A refused action says why. An empty section shows only its button, not an empty frame waiting to be filled.
+
+**Escape exactly once.** Text is escaped at the boundary it is emitted from, and anything already html is marked as such and never processed again. Two bugs today came from breaking this: json escaped into a script tag it could not survive, and a pre-rendered chip escaped a second time so the anchor printed as source.
+
+**Check it rendered, not that it was written.** Open the page, click every control, read the shapes at the width the reader will use. A number in the dom is not a thing that looks right.
+
 ## Ordering: chronology, then cursor
 
 Two rules, in this order.
@@ -96,7 +114,8 @@ Reference implementations for every block live in `assets/blocks.html`; copy the
 | race | concurrency | runs two actors at one row, with and without the lock |
 | ledger | a guarantee or invariant | tries to break it with buttons; it holds, and says why |
 | probe | a parser or branch | feeds real inputs, watches which branch takes each |
-| map | the whole system | sees the skeleton, every node a code ref; sticky, current node glowing |
+| flow | the whole journey | reads a real flowchart drawn from mermaid source at build time, every node a code ref |
+| map | the parts and who owns them | sees the skeleton as a row of linked nodes, for structure rather than sequence |
 | space | vector search | embeds a query, watches the nearest pages light with scores |
 | angle | similarity math | drags the angle, feels cosine fall past the shipped gate |
 | stack | context assembly | assembles the window part by part against the token budget |
@@ -111,6 +130,8 @@ Reference implementations for every block live in `assets/blocks.html`; copy the
 - a running block disables its controls and says it is running ("racing…"); they restore when done
 - a selected option shows its selected state
 - one-line function descriptions appear only on essential stops, never everywhere
+- a question asked from inside a block carries the block type and the part it came from, so an answer can say "node C of the flow chart" instead of guessing
+- a mark in the text is threaded to its card with a faint curve behind the text; it lifts on hover and never crosses a word
 
 Use a block only where operating it teaches something; a stop whose whole content is one fact takes a think-line, not a component. Volunteer the weak spot before the reviewer finds it, as a think-line or a BEFORE/AFTER pair. Never pose a question the reviewer already decided.
 
