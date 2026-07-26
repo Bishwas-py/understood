@@ -575,19 +575,28 @@
 	const rail = document.createElement('div');
 	rail.id = 'qa-rail';
 	// Discussion: a comments section at the end of the page, not a floating box.
-	const discuss = document.createElement('section');
-	discuss.id = 'discuss';
-	const discussH = document.createElement('h2');
-	discussH.innerHTML = 'Discussion <span class="hint"><kbd>⌘K</kbd> jumps here, with a selection it quotes it</span>';
-	const chatlog = document.createElement('div');
-	chatlog.id = 'chatlog';
-	const discussBox = document.createElement('div');
-	discussBox.id = 'discuss-box';
-	const chatInput = document.createElement('input');
-	chatInput.placeholder = 'ask, or tell me to change the page…';
-	discussBox.append(chatInput);
-	discuss.append(discussH, chatlog, discussBox);
-	mainEl.append(discuss);
+	// A rendered page already carries one, so adopt it; only build it when absent.
+	let discuss = document.getElementById('discuss');
+	let chatlog, discussBox, chatInput;
+	if (discuss) {
+		chatlog = discuss.querySelector('#chatlog');
+		discussBox = discuss.querySelector('#discuss-box');
+		chatInput = discussBox.querySelector('input');
+	} else {
+		discuss = document.createElement('section');
+		discuss.id = 'discuss';
+		const discussH = document.createElement('h2');
+		discussH.innerHTML = 'Discussion <span class="hint"><kbd>⌘K</kbd> jumps here, with a selection it quotes it</span>';
+		chatlog = document.createElement('div');
+		chatlog.id = 'chatlog';
+		discussBox = document.createElement('div');
+		discussBox.id = 'discuss-box';
+		chatInput = document.createElement('input');
+		chatInput.placeholder = 'ask, or tell me to change the page…';
+		discussBox.append(chatInput);
+		discuss.append(discussH, chatlog, discussBox);
+		mainEl.append(discuss);
+	}
 	document.body.append(hlLayer, rail);
 
 	function goDiscuss() {
