@@ -30,7 +30,9 @@ def deep_inline(repo: dict, value):
     if isinstance(value, list):
         return [deep_inline(repo, v) for v in value]
     if isinstance(value, dict):
-        return {k: (v if k in ("type", "tone", "ref") else deep_inline(repo, v)) for k, v in value.items()}
+        # "chip" is already rendered html, the rest is source text.
+        return {k: (v if k in ("type", "tone", "ref", "chip") else deep_inline(repo, v))
+                for k, v in value.items()}
     return value
 
 
