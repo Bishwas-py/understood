@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Serve ONE walkthrough file on a stable local origin: walkthrough.localhost.
+"""Serve ONE rundown file on a stable local origin: rundown.localhost.
 
 Deliberately not `python3 -m http.server`: that serves the whole directory, and
 these files usually live in Downloads. This binds loopback only and answers
 every path with the single file it was given, so nothing else is exposed.
 
-    ./serve.py ~/Downloads/my-change-walkthrough.html
+    ./serve.py ~/Downloads/my-change-rundown.html
     ./serve.py path/to/file.html --port 8412 --open
 
-Why walkthrough.localhost and a fixed port: browsers treat *.localhost as a
+Why rundown.localhost and a fixed port: browsers treat *.localhost as a
 secure context, so the "Open Cursor?" external-protocol dialog offers an
 "Always allow" checkbox, and that decision is remembered per origin (host AND
 port). A stable host:port means the presenter approves the editor link once,
-ever. The walkthrough's slug goes in the URL path, not the hostname.
+ever. The rundown's slug goes in the URL path, not the hostname.
 """
 
 from __future__ import annotations
@@ -29,13 +29,13 @@ import threading
 import webbrowser
 from pathlib import Path
 
-HOST = "walkthrough.localhost"
+HOST = "rundown.localhost"
 BASE_PORT = 8477
 
 
 def slugify(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    return slug or "walkthrough"
+    return slug or "rundown"
 
 
 def taken(port: int) -> bool:
@@ -78,7 +78,7 @@ def open_in_browser(url: str) -> None:
 
 
 def in_store(path: Path) -> bool:
-    """A page inside a walkthrough folder shares that folder's conversation."""
+    """A page inside a rundown folder shares that folder's conversation."""
     return (path.parent / "spec.json").is_file()
 
 
@@ -211,7 +211,7 @@ def main() -> int:
             print(f"{home.slug} is not built yet, run store.py build {home.slug}", file=sys.stderr)
             return 1
         else:
-            print(f"no such file or walkthrough: {args.file}", file=sys.stderr)
+            print(f"no such file or rundown: {args.file}", file=sys.stderr)
             return 1
     path = path.resolve()
 

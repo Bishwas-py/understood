@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Render a mermaid flowchart subset to inline SVG, at build time.
 
-Mermaid proper is megabytes and wants a browser; a walkthrough is one small
+Mermaid proper is megabytes and wants a browser; a rundown is one small
 file that must still work offline in a year. So this understands the part of
-the language a code walkthrough actually uses and draws it directly:
+the language a code rundown actually uses and draws it directly:
 
     flowchart TD
         A[selection] --> B[POST /ask]

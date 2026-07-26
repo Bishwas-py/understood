@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Check a walkthrough spec against the repo and against the skill's rules.
+"""Check a rundown spec against the repo and against the skill's rules.
 
-Every line number in a walkthrough is a promise, so this runs before a page is
+Every line number in a rundown is a promise, so this runs before a page is
 ever served. Errors fail the build; warnings are printed and let it through.
 
-    python3 validate.py path/to/walkthrough.json
+    python3 validate.py path/to/rundown.json
 """
 
 from __future__ import annotations
@@ -180,7 +180,7 @@ def validate(spec: dict) -> Report:
 
 def resync(spec: dict) -> list[str]:
     """Move every ref that carries a pattern back onto the line the pattern finds.
-    Code moves; a walkthrough should follow it rather than lie about it."""
+    Code moves; a rundown should follow it rather than lie about it."""
     root = expand_root(spec["repo"]["root"])
     moved = []
     for where, container, key in walk_refs(spec):

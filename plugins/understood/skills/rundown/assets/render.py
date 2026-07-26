@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Compile a walkthrough spec into one self-contained HTML file.
+"""Compile a rundown spec into one self-contained HTML file.
 
-    python3 render.py walkthrough.json out.html
+    python3 render.py rundown.json out.html
 
 The spec holds content; this file owns every tag, id, and class the page uses.
 Blocks are emitted with their initial state already drawn, plus a config the
@@ -432,7 +432,7 @@ def render(spec: dict) -> str:
         sub = f'{sub} <span class="build">build {spec.get("build", 1)} &middot; {spec["repo"]["sha"]}</span>'
     html = (
         tpl.replace("{{LOOK}}", look_html(spec))
-        .replace("{{TITLE}}", esc(spec.get("title", "walkthrough")))
+        .replace("{{TITLE}}", esc(spec.get("title", "rundown")))
         .replace("{{SUBTITLE}}", sub)
         .replace("{{NAV}}", nav_html(spec))
         .replace("{{BODY}}", body_html(spec))
@@ -447,7 +447,7 @@ def look_html(spec: dict) -> str:
     """The spec's own look rules, last in the cascade so they win.
 
     A page change is a spec change, so a request to restyle one page lands here
-    rather than in the template, which every other walkthrough is stamped from.
+    rather than in the template, which every other rundown is stamped from.
     """
     rules = spec.get("look") or []
     if not rules:

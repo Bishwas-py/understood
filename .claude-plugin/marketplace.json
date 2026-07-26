@@ -1,14 +1,14 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "understood",
-  "description": "Low-cognitive-load patterns: caveman-english voice, forward-arrow flow chains, and walkthrough review pages",
+  "description": "Low-cognitive-load patterns: caveman-english voice, forward-arrow flow chains, and rundown review pages",
   "owner": {
     "name": "Bishwas Bhandari"
   },
   "plugins": [
     {
       "name": "understood",
-      "description": "Rewrite dense text into faster-to-read shapes, and build clickable code walkthroughs for live reviews",
+      "description": "Rewrite dense text into faster-to-read shapes, and build clickable code rundowns for live reviews",
       "author": {
         "name": "Bishwas Bhandari"
       },

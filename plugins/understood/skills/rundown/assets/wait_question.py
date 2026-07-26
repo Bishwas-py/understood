@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wait for unanswered walkthrough questions, or record an answer.
+"""Wait for unanswered rundown questions, or record an answer.
 
 Wait mode (default) blocks until at least one question in QUESTIONS has no
 matching id in ANSWERS, prints the pending question(s) as JSON lines, and

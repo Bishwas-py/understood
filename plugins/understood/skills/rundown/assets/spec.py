@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared pieces of the walkthrough spec: refs, chips, ids, escaping.
+"""Shared pieces of the rundown spec: refs, chips, ids, escaping.
 
 A spec is one JSON file. Everything the page shows comes from it; the renderer
 owns all markup. Two small conventions travel through the text fields:

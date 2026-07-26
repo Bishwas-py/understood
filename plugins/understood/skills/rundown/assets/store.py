@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""One folder per walkthrough, so a rebuild cannot orphan the conversation.
+"""One folder per rundown, so a rebuild cannot orphan the conversation.
 
-    .walkthrough/ask-loop/
+    .rundown/ask-loop/
         spec.json          the truth, the only file anyone edits
         page.html          build output, overwritten by every build
         questions.jsonl    what the reader asked
@@ -10,7 +10,7 @@
 
 The folder name is the identity. Nothing is keyed on a filename, so re-rendering
 never separates a page from its thread. The store sits in the repo the
-walkthrough is about, and is added to .git/info/exclude rather than .gitignore,
+rundown is about, and is added to .git/info/exclude rather than .gitignore,
 since .gitignore is a tracked file in someone else's project.
 
     ./store.py list
@@ -30,7 +30,7 @@ from pathlib import Path
 
 from spec import load, save as write_json
 
-STORE = ".walkthrough"
+STORE = ".rundown"
 KEEP = 20
 
 
@@ -66,7 +66,7 @@ def store_dir(start: Path | None = None) -> Path:
 
 
 class Home:
-    """Every path a walkthrough owns, derived from its slug and nothing else."""
+    """Every path a rundown owns, derived from its slug and nothing else."""
 
     def __init__(self, slug: str, start: Path | None = None):
         self.slug = slug
@@ -112,7 +112,7 @@ def build(home: Home, fix: bool = False) -> int:
     import validate
 
     if not home.exists():
-        print(f"no walkthrough named {home.slug} in {home.dir.parent}", file=sys.stderr)
+        print(f"no rundown named {home.slug} in {home.dir.parent}", file=sys.stderr)
         return 1
     spec = load(home.spec)
     if fix:
@@ -145,7 +145,7 @@ def count_lines(path: Path) -> int:
 def cmd_list(args) -> int:
     homes = list(each())
     if not homes:
-        print(f"no walkthroughs in {store_dir()}")
+        print(f"no rundowns in {store_dir()}")
         return 0
     for home in homes:
         spec = load(home.spec)
@@ -176,7 +176,7 @@ def cmd_path(args) -> int:
 def cmd_rm(args) -> int:
     home = Home(args.slug)
     if not home.dir.is_dir():
-        print(f"no walkthrough named {args.slug}", file=sys.stderr)
+        print(f"no rundown named {args.slug}", file=sys.stderr)
         return 1
     asked, answered = count_lines(home.questions), count_lines(home.answers)
     shots = len(list(home.history.glob("*.json"))) if home.history.is_dir() else 0
@@ -192,7 +192,7 @@ def cmd_rm(args) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     subs = ap.add_subparsers(dest="cmd", required=True)
-    subs.add_parser("list", help="every walkthrough in this repo").set_defaults(fn=cmd_list)
+    subs.add_parser("list", help="every rundown in this repo").set_defaults(fn=cmd_list)
     p = subs.add_parser("build", help="validate and render into the folder")
     p.add_argument("slug")
     p.add_argument("--fix", action="store_true", help="code moved: put every ref back on the line its pattern finds")
@@ -205,7 +205,7 @@ def main() -> int:
     p.add_argument("file")
     p.add_argument("--fix", action="store_true")
     p.set_defaults(fn=cmd_save)
-    p = subs.add_parser("rm", help="delete a walkthrough and its conversation")
+    p = subs.add_parser("rm", help="delete a rundown and its conversation")
     p.add_argument("slug")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_rm)
