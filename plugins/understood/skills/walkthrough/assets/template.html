@@ -524,9 +524,13 @@
 	/* A thread from a mark to its card. Drawn behind the text at low opacity,
 	   so it reads as a hint rather than a line you have to look past. */
 	#link-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: -1; overflow: visible; }
-	#link-layer path { fill: none; stroke: var(--accent); stroke-width: 1.1; opacity: .12;
-		pointer-events: stroke; transition: opacity .2s, stroke-width .2s; }
-	#link-layer path:hover, #link-layer path.lit { opacity: .55; stroke-width: 1.5; }
+	#link-layer path { fill: none; stroke: var(--accent); transition: opacity .25s, stroke-width .25s; }
+	#link-layer .halo { stroke-width: 7; opacity: .07; filter: url(#thread-blur); pointer-events: none; }
+	#link-layer .core { stroke-width: 1; opacity: .16; pointer-events: stroke; }
+	#link-layer g:hover .halo, #link-layer .halo.lit { opacity: .18; stroke-width: 9; }
+	#link-layer g:hover .core, #link-layer .core.lit { opacity: .45; stroke-width: 1.3; }
+	#link-layer .halo.strong { opacity: .3; stroke-width: 11; }
+	#link-layer .core.strong { opacity: .8; stroke-width: 1.6; }
 	#hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 	#hl-layer .hl { position: absolute; border-radius: 2px; }
 	#hl-layer .hl.asking { background: var(--hl-asking); }
@@ -632,6 +636,8 @@
 	rail.id = 'qa-rail';
 	const linkLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 	linkLayer.id = 'link-layer';
+	linkLayer.innerHTML = '<defs><filter id="thread-blur" x="-20%" y="-20%" width="140%" height="140%">'
+		+ '<feGaussianBlur stdDeviation="2.6"/></filter></defs>';
 	// Discussion: a comments section at the end of the page, not a floating box.
 	// A rendered page already carries one, so adopt it; only build it when absent.
 	let discuss = document.getElementById('discuss');
@@ -858,13 +864,16 @@
 			const cr = card.getBoundingClientRect();
 			const cardLeftOfText = cr.right < bands[0].left;
 			const band = bands[bands.length - 1];
+			const hook = card.querySelector(':scope > .hook');
+			const hookVisible = hook && getComputedStyle(hook).display !== 'none';
 			const from = cardLeftOfText
 				? { x: band.left + scrollX, y: (band.top + band.bottom) / 2 + scrollY }
 				: { x: band.right + scrollX, y: (band.top + band.bottom) / 2 + scrollY };
-			const to = {
-				x: (cardLeftOfText ? cr.right : cr.left) + scrollX,
-				y: cr.top + scrollY + Math.min(22, cr.height / 2),
-			};
+			// land in the middle of the glow, not on the card's edge beside it
+			const hr = hookVisible ? hook.getBoundingClientRect() : null;
+			const to = hr
+				? { x: hr.left + hr.width / 2 + scrollX, y: hr.top + hr.height / 2 + scrollY }
+				: { x: (cardLeftOfText ? cr.right : cr.left) + scrollX, y: cr.top + scrollY + Math.min(22, cr.height / 2) };
 			const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 			const dy = to.y - from.y;
 			const span = Math.abs(to.x - from.x);
@@ -886,8 +895,15 @@
 				p.setAttribute('d',
 					`M ${from.x} ${from.y} C ${gutter} ${from.y} ${gutter} ${to.y} ${to.x} ${to.y}`);
 			}
+			const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+			g.dataset.qid = id;
+			const halo = p.cloneNode();
+			halo.setAttribute('class', 'halo');
+			halo.dataset.qid = id;
+			p.setAttribute('class', 'core');
 			p.dataset.qid = id;
-			linkLayer.append(p);
+			g.append(halo, p);
+			linkLayer.append(g);
 		}
 	}
 

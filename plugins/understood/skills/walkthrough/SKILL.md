@@ -69,7 +69,7 @@ Beauty is not decoration here. A page the reader wants to look at is a page they
 
 **Every layer knows its depth.** A highlight paints over text, a connector thread paints under it, a card floats beside it. Anything that would obscure reading belongs behind the text at low opacity, and lifts only on hover.
 
-**A pointer glows, it does not bracket.** The handle that ties a card to its text is a soft radial glow at the corner, not a drawn bracket. Hard geometry announces a widget; a glow suggests a place to put the cursor and disappears when it is not wanted.
+**A pointer glows, it does not bracket.** The handle that ties a card to its text is a soft radial glow at the corner, not a drawn bracket. Hard geometry announces a widget; a glow suggests a place to put the cursor and disappears when it is not wanted. The thread lands in the middle of that glow rather than on the edge beside it, and is drawn as a blurred halo under a hairline core, so it belongs to the same soft family instead of arriving as wire.
 
 **One weight of ink per idea.** A state label is a small pill, not a heading. A claim is bold, its proof is plain, a code chip is monospace. If two things look equally loud, the reader has to decide what matters, which is the job the page was supposed to do.
 
