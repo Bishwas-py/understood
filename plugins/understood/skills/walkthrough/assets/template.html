@@ -18,6 +18,7 @@
 		--hl-asking: rgba(84, 143, 255, .30);
 		--hl-asked: rgba(255, 200, 40, .35);
 		--hl-lit: rgba(255, 200, 40, .55);
+		--hl-strong: rgba(255, 186, 0, .85);
 		--ba-bad: rgba(220, 60, 60, .07);
 		--ba-bad-fg: #c0392b;
 		--ba-good: rgba(40, 160, 90, .08);
@@ -37,6 +38,7 @@
 			--hl-asking: rgba(122, 162, 255, .32);
 			--hl-asked: rgba(255, 213, 79, .22);
 			--hl-lit: rgba(255, 213, 79, .4);
+			--hl-strong: rgba(255, 213, 79, .72);
 			--ba-bad: rgba(220, 60, 60, .12);
 			--ba-bad-fg: #e07b6d;
 			--ba-good: rgba(40, 160, 90, .12);
@@ -468,11 +470,20 @@
 	/* One input for the discussion: card reply boxes hide here, the main box below serves all. */
 	#chatlog .qa-replybox { display: none; }
 	/* Corner hook pointing at the corner that faces the asked text. */
-	.qa::after { content: ""; position: absolute; width: 18px; height: 18px; display: none; pointer-events: none; }
-	.qa.dir-tr::after { display: block; top: -2px; right: -2px; border-top: 3px solid var(--accent); border-right: 3px solid var(--accent); border-top-right-radius: 10px; }
-	.qa.dir-tl::after { display: block; top: -2px; left: -2px; border-top: 3px solid var(--accent); border-left: 3px solid var(--accent); border-top-left-radius: 10px; }
-	.qa.dir-br::after { display: block; bottom: -2px; right: -2px; border-bottom: 3px solid var(--accent); border-right: 3px solid var(--accent); border-bottom-right-radius: 10px; }
-	.qa.dir-bl::after { display: block; bottom: -2px; left: -2px; border-bottom: 3px solid var(--accent); border-left: 3px solid var(--accent); border-bottom-left-radius: 10px; }
+	/* The corner hook points at the asked text, so it is also the handle for it:
+	   hovering the hook lights that mark and its thread harder than the card does. */
+	.qa .hook {
+		position: absolute; width: 20px; height: 20px; display: none; cursor: pointer;
+		transition: border-color .15s, transform .15s;
+	}
+	.qa .hook::before { content: ""; position: absolute; inset: -10px; }
+	.qa.dir-tr .hook { display: block; top: -2px; right: -2px; border-top: 3px solid var(--accent); border-right: 3px solid var(--accent); border-top-right-radius: 10px; }
+	.qa.dir-tl .hook { display: block; top: -2px; left: -2px; border-top: 3px solid var(--accent); border-left: 3px solid var(--accent); border-top-left-radius: 10px; }
+	.qa.dir-br .hook { display: block; bottom: -2px; right: -2px; border-bottom: 3px solid var(--accent); border-right: 3px solid var(--accent); border-bottom-right-radius: 10px; }
+	.qa.dir-bl .hook { display: block; bottom: -2px; left: -2px; border-bottom: 3px solid var(--accent); border-left: 3px solid var(--accent); border-bottom-left-radius: 10px; }
+	.qa .hook:hover { transform: scale(1.25); }
+	#hl-layer .hl.asked.strong { background: var(--hl-strong); }
+	#link-layer path.strong { opacity: .9; stroke-width: 2; }
 	.qa::before { content: "ASKED"; color: var(--accent); }
 	.qa-sel {
 		color: var(--muted);
@@ -738,7 +749,24 @@
 	}
 	function setDir(card, dir) {
 		card.classList.remove('dir-tl', 'dir-tr', 'dir-bl', 'dir-br');
-		if (dir) card.classList.add('dir-' + dir);
+		if (!dir) return;
+		card.classList.add('dir-' + dir);
+		if (!card.querySelector(':scope > .hook')) {
+			const hook = document.createElement('span');
+			hook.className = 'hook';
+			const id = card.id.slice(3);
+			const mark = on => {
+				hlLayer.querySelectorAll('.hl[data-qid="' + id + '"]').forEach(h => h.classList.toggle('strong', on));
+				linkLayer.querySelectorAll('path[data-qid="' + id + '"]').forEach(p => p.classList.toggle('strong', on));
+			};
+			hook.addEventListener('mouseenter', () => mark(true));
+			hook.addEventListener('mouseleave', () => mark(false));
+			hook.addEventListener('click', () => {
+				const band = hlLayer.querySelector('.hl[data-qid="' + id + '"]');
+				if (band) scrollTo({ top: parseFloat(band.style.top) - innerHeight / 2, behavior: 'smooth' });
+			});
+			card.prepend(hook);
+		}
 	}
 	// One home-resolution for every card: thread under its parent, the discussion
 	// log, or anchored beside the text (rail when a margin has room, in-flow otherwise).
