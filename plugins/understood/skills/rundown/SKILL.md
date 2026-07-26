@@ -355,6 +355,20 @@ A selection inside an existing card threads: the follow-up arrives with a `paren
 
 The selection chip offers two intents. **Ask** stays inline: the answer pins beside the text. **Quote** carries the selection into the discussion section as an attached reference, and the record arrives with `"via": "spot"` plus the quoted `selection`; the conversation lives in the discussion thread. A quote is how the reader hands you a precise anchor, for a question or for an edit: "make this section shorter" with a quote means that section, and a morph or file rewrite scoped to it. A discussion record with no selection is a question about the whole change.
 
+**A rewording carries its own mark.** When a page change rewrites text that a question was asked on, say what that text became and the mark follows it:
+
+```bash
+python3 assets/wait_question.py <q.jsonl> <a.jsonl> --answer <id> --rebind "did the form close this block" <<'EOF'
+- reworded and rebuilt, node C now reads as a question
+EOF
+```
+
+The card then carries both, the words that were quoted struck through and the words they became under them, so the reader can see the thread survived rather than guess. The build says which quotes went missing, and that list is what you owe a rebind:
+
+```
+orphaned: 888c4b73 quoted "gate closed this block", answer with --rebind to move its mark
+```
+
 **A page change is a spec change.** The discussion box can also command the page, and only when the reader explicitly asks for one (cut a stage, reword a headline, reorder stops, more room between lines). Never on an ordinary question. Whatever they ask for, the answer is the same shape: edit `spec.json`, `store.py save`, and say in one line what changed. Never patch the live page, and never edit `template.html` to satisfy something asked on a page: the template turns json into html and that is its whole job, so a change made there would silently apply to every rundown that follows.
 
 A look request has a home in the spec too, so it survives the rebuild that a content edit would otherwise wipe:

@@ -18,10 +18,12 @@ The command surface lives in cli.py; this is the library it stands on.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
 from datetime import datetime
+from html import unescape
 from pathlib import Path
 
 from spec import load, save as write_json
@@ -124,7 +126,43 @@ def build(home: Home, fix: bool = False) -> int:
         return 1
     home.page.write_text(render.render(spec), encoding="utf-8")
     print(f"built {home.page} ({home.page.stat().st_size} bytes)")
+    for line in orphans(home):
+        print(f"  {line}")
     return 0
+
+
+def page_text(home: Home) -> str:
+    """What the built page actually says, tags stripped, whitespace flattened."""
+    html = home.page.read_text(encoding="utf-8", errors="replace")
+    body = html.split("<body>", 1)[-1]
+    body = re.sub(r"<script.*?</script>|<style.*?</style>", " ", body, flags=re.S)
+    return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", body)))
+
+
+def orphans(home: Home) -> list[str]:
+    """Questions whose quoted words are no longer on the page.
+
+    A rewording is the usual cause, and the reader loses the thread back to what
+    they asked about. Saying so is what makes a rebind possible: answer with
+    --rebind and the mark follows the words to their new form.
+    """
+    if not home.page.is_file() or not home.questions.is_file():
+        return []
+    import serve
+
+    text = page_text(home)
+    moved = {
+        a["id"]: a["rebind"]["to"]
+        for a in serve.read_jsonl(home.answers)
+        if isinstance(a.get("rebind"), dict) and a["rebind"].get("to")
+    }
+    out = []
+    for q in serve.read_jsonl(home.questions):
+        quote = re.sub(r"\s+", " ", str(q.get("selection", ""))).strip()
+        if not quote or quote in text or moved.get(q["id"], "\0") in text:
+            continue
+        out.append(f'orphaned: {q["id"][:8]} quoted "{quote[:60]}", answer with --rebind to move its mark')
+    return out
 
 
 def each(start: Path | None = None, root: Path | None = None):

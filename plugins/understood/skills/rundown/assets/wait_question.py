@@ -13,6 +13,14 @@ Answer mode appends one answer, text read from stdin (heredoc-safe):
     - short bullet
     - another
     EOF
+
+If the answer reworded the text the question was asked on, say what it became.
+The mark follows it to the new words and the card shows both, so a rename never
+costs a reader the thread back to what they asked about:
+
+    ... --answer <id> --rebind "did the form close this block" <<'EOF'
+    - reworded and rebuilt, node C now reads as a question
+    EOF
 """
 
 from __future__ import annotations
@@ -24,6 +32,7 @@ import time
 from pathlib import Path
 
 from serve import read_jsonl
+from spec import append_jsonl
 
 
 def files_signature(*paths: Path) -> tuple:
@@ -42,6 +51,7 @@ def main() -> int:
     ap.add_argument("questions", type=Path)
     ap.add_argument("answers", type=Path)
     ap.add_argument("--answer", metavar="ID", help="append an answer for ID, text from stdin")
+    ap.add_argument("--rebind", metavar="TEXT", help="the quoted text was reworded to TEXT, move the mark there")
     ap.add_argument("--poll", type=float, default=0.5)
     args = ap.parse_args()
 
@@ -50,8 +60,10 @@ def main() -> int:
         if not text:
             print("empty answer, nothing appended", file=sys.stderr)
             return 1
-        with args.answers.open("a", encoding="utf-8") as f:
-            f.write(json.dumps({"id": args.answer, "answer": text}, ensure_ascii=False) + "\n")
+        record = {"id": args.answer, "answer": text}
+        if args.rebind:
+            record["rebind"] = {"to": args.rebind}
+        append_jsonl(args.answers, record)
         return 0
 
     last_sig = None

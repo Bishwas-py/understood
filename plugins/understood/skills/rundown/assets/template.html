@@ -498,6 +498,8 @@
 		font-size: .82rem;
 		overflow-wrap: anywhere;
 	}
+	.qa-sel.was { opacity: .62; text-decoration: line-through; text-decoration-color: var(--line); }
+	.qa-sel.now b { color: var(--muted); font-weight: 600; }
 	.qa-q { font-weight: 600; margin: 0; }
 	.qa-a { margin: .3rem 0 0; overflow-wrap: anywhere; }
 	.qa-a code { overflow-wrap: anywhere; }
@@ -1175,7 +1177,7 @@
 		return html;
 	}
 
-	function upsertCard(q, answer) {
+	function upsertCard(q, answer, rebind) {
 		let changed = false;
 		if (q.via === 'ledger') {
 			if (answer !== undefined && !renderedClaims[q.id]) {
@@ -1229,6 +1231,22 @@
 				});
 			}
 			placeCard(card);
+		}
+		// what the words were, and what they became, on the card that quoted them
+		if (rebind && rebind.to && card.dataset.rebound !== rebind.to) {
+			card.dataset.rebound = rebind.to;
+			const old = card.querySelector(':scope > .qa-sel');
+			if (old) old.classList.add('was');
+			let now = card.querySelector(':scope > .qa-sel.now');
+			if (!now) {
+				now = document.createElement('p');
+				now.className = 'qa-sel now';
+				(old || card.firstChild).after(now);
+			}
+			now.innerHTML = '';
+			now.append(Object.assign(document.createElement('b'), { textContent: 'renamed to: ' }),
+				document.createTextNode(clip(rebind.to, 220)));
+			changed = true;
 		}
 		if (answer !== undefined) {
 			delete pendingSince[q.id];
@@ -1295,16 +1313,24 @@
 		range.setEnd(e.n, e.i + 1);
 		return range;
 	}
-	function restoreRanges(questions) {
+	// A mark points at words, and words get reworded. When the session that made
+	// the edit says what the text became, the mark follows it there rather than
+	// searching for something that no longer exists.
+	function restoreRanges(questions, rebinds) {
 		const cache = new Map();
 		let restored = 0;
 		for (const q of questions) {
-			if (askedRanges.has(q.id) || rangeTried.has(q.id) || !q.selection) continue;
+			const wants = [(rebinds && rebinds[q.id] && rebinds[q.id].to) || '', q.selection].filter(Boolean);
+			if (askedRanges.has(q.id) || rangeTried.has(q.id) || !wants.length) continue;
 			rangeTried.add(q.id);
 			const parent = q.parent && document.getElementById('qa-' + q.parent);
 			const root = parent || (q.stop && document.getElementById(q.stop)) || mainEl;
-			const range = findRange(root, q.selection, cache)
-				|| (!parent && root !== mainEl && findRange(mainEl, q.selection, cache));
+			let range = null;
+			for (const text of wants) {
+				range = findRange(root, text, cache)
+					|| (!parent && root !== mainEl && findRange(mainEl, text, cache));
+				if (range) break;
+			}
 			if (range) { askedRanges.set(q.id, range); restored++; }
 		}
 		return restored;
@@ -1314,15 +1340,18 @@
 		try {
 			const r = await fetch('qa.json', { cache: 'no-store' });
 			const d = await r.json();
-			const answers = {};
-			for (const a of d.answers) answers[a.id] = a.answer;
+			const answers = {}, rebinds = {};
+			for (const a of d.answers) {
+				answers[a.id] = a.answer;
+				if (a.rebind && a.rebind.to) rebinds[a.id] = a.rebind;
+			}
 			let pending = false;
 			let changed = false;
 			for (const q of d.questions) {
-				changed = upsertCard(q, answers[q.id]) || changed;
+				changed = upsertCard(q, answers[q.id], rebinds[q.id]) || changed;
 				if (answers[q.id] === undefined) pending = true;
 			}
-			changed = restoreRanges(d.questions) > 0 || changed;
+			changed = restoreRanges(d.questions, rebinds) > 0 || changed;
 			if (pending) startPolling(); else stopPolling();
 			if (changed) repaintAll();
 		} catch (e) { /* server gone; leave the cards as they are */ }
