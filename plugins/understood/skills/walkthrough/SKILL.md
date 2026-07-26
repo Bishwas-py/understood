@@ -65,15 +65,17 @@ Two rules, in this order.
 
 **2. Inside an act, every stop must be reachable from the previous one by go-to-definition.** Open a file, click a symbol, land on the next stop. Never "now open this other file", the presenter loses their place and the audience loses the thread. If two stops are not connected by a call, either they belong to different acts or a stop is missing between them.
 
-Say the hop out loud in the step text: *Cmd-click `Foo`*, *Line 126, cmd-click `bar`*, *Back up to `Baz`, line 141*.
+The hop lives in the ordering, not in the words. Stops stay reachable by go-to-definition, but the headline spends itself on meaning; the chip does the navigating. Name a hop inline only when the jump itself is the finding, for instance a call crossing a service boundary.
 
 ## Anatomy of a stop
 
-A stop is three things, in this order: one anchor line (the action plus the `file:line` link), one **live block** that installs this stop's piece of the model, and at most two think-lines under it, each shaped `thing → meaning`. Nothing else. No KEYWORD, no KNOW MORE, no IN/OUT boxes, no labels about the page's own taxonomy; a label appears only when it is an actor in the thought (WORKER, BEFORE, a function name).
+A stop is three things, in this order: a **headline that states what this stop proves**, in a handful of words, with its `file:line` chip beside it; one **live block** that installs this stop's piece of the model; and at most two think-lines under it, each shaped `thing → meaning`. **The headline is a claim, never a direction.** Every chip is already a link and the sidebar already navigates, so words spent on "Open", "Click", "Scroll up to", "Back in", "Line 171" are words that taught nothing. Spend them on the finding instead: not *"Scroll up to `formmap.go:50` gates, the form's own yes/no doors"* but *"One 'no' closes every gift field before a single search runs"*. Real numbers from the run belong in the headline when they are the point ("33 of 119 fields never reach the PDFs", "0.35 clears the real page at 0.49"). If a stop cannot produce such a claim, it is not a stop.
+
+Nothing else. No KEYWORD, no KNOW MORE, no IN/OUT boxes, no labels about the page's own taxonomy; a label appears only when it is an actor in the thought (WORKER, BEFORE, a function name).
 
 ```html
 <li id="s3">
-	<p><span class="action">Click</span> <a class="path" href="...">serve.py:129</a> <code>do_POST</code></p>
+	<p><span class="action">One "no" closes every gift field before a single search runs</span> <a class="path" href="...">formmap.go:50</a> <code>gates</code></p>
 	<!-- one live block here, copied from assets/blocks.html and adapted -->
 	<ul class="think">
 		<li><b>append holds a lock</b> → two clicks can land the same instant</li>
@@ -103,6 +105,7 @@ Reference implementations for every block live in `assets/blocks.html`; copy the
 **The block contract, non-negotiable:**
 
 - the control is fused to a real `file:line` chip; what the line does and where it lives are one object
+- every chip inside a block is an editor anchor, never plain text: `<a class="path" href="cursor://file/ABS/PATH/file.go:155">file.go:155</a>`, including the ones a block writes from JS (carry the href in a `data-href` or a `href` field beside the label). The template upgrades any chip left as a bare `span.path` when its filename appears in another anchor, but that is a safety net, not the plan
 - every value shown comes from the actual run, never invented
 - every interaction produces a visible utterance; a refused action says why it refused
 - a running block disables its controls and says it is running ("racing…"); they restore when done
@@ -204,7 +207,7 @@ Run all of these. Report the counts, do not claim it works.
 - link count equals id count
 - no unclosed tags
 - every block control operates: buttons press and restore, sliders drive their readouts, nodes click, busy states disable and come back, refusals speak. Click through every block before serving
-- no banned phrase survives
+- no banned phrase survives, and no headline opens with a navigation verb (Open, Click, Cmd-click, Scroll up to, Back in, Line N); each one states a finding
 - click two or three sidebar links yourself
 - fetch the served URL and confirm it returns 200 with the expected byte count
 

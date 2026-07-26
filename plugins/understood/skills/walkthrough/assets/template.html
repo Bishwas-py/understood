@@ -1081,6 +1081,36 @@
 			if (changed) { paintHl(); layoutRail(); }
 		} catch (e) { /* server gone; leave the cards as they are */ }
 	}
+	// Any file:line chip left as plain text becomes a real editor link, using the
+	// paths the page's own anchors already carry. Covers blocks that build chips in JS.
+	let upgrading = false;
+	function upgradePathChips() {
+		if (upgrading) return;
+		const base = new Map();
+		document.querySelectorAll('a.path[href]').forEach(a => {
+			const href = a.getAttribute('href');
+			const m = href.match(/\/([^/]+):(\d+)$/);
+			if (m) base.set(m[1], href.slice(0, href.length - m[2].length - 1));
+		});
+		if (!base.size) return;
+		const stale = [...document.querySelectorAll('span.path')]
+			.filter(s => /^[\w.\-]+:\d+$/.test(s.textContent.trim()) && base.has(s.textContent.trim().split(':')[0]));
+		if (!stale.length) return;
+		upgrading = true;
+		for (const s of stale) {
+			const [file, line] = s.textContent.trim().split(':');
+			const a = document.createElement('a');
+			a.className = 'path';
+			a.href = base.get(file) + ':' + line;
+			a.textContent = s.textContent;
+			s.replaceWith(a);
+		}
+		upgrading = false;
+	}
+	new MutationObserver(() => { if (!upgrading) requestAnimationFrame(upgradePathChips); })
+		.observe(document.body, { childList: true, subtree: true });
+	upgradePathChips();
+
 	function startPolling() { if (!pollTimer) pollTimer = setInterval(syncQA, 2000); }
 	function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
 	syncQA();
