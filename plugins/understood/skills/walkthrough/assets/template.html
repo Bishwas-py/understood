@@ -250,7 +250,14 @@
 	   runtime below wires the interaction from its config. */
 	.blk-body { padding: .7rem .8rem; font-size: .9rem; }
 	.blk-head .hint { font-size: .8rem; color: var(--muted); }
-	.blk-head .state { margin-left: auto; font-size: .75rem; color: var(--accent); letter-spacing: .05em; }
+	.blk-head .state {
+		margin-left: auto; font-size: .66rem; letter-spacing: .09em; text-transform: uppercase;
+		font-weight: 700; color: var(--accent); background: var(--say-bg);
+		border-radius: 999px; padding: .12rem .55rem; white-space: nowrap;
+	}
+	.blk-head .state.off { color: var(--ba-bad-fg); background: var(--ba-bad); }
+	.blk .ln:first-child { margin-top: 0; }
+	.blk .res { margin-top: .45rem; padding-top: .4rem; border-top: 1px solid var(--line); }
 	.tgl { width: 44px; height: 24px; border-radius: 999px; border: 1px solid var(--line); background: var(--accent); position: relative; cursor: pointer; flex: 0 0 auto; transition: background .25s; }
 	.tgl .knob { position: absolute; top: 2px; left: 22px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .25s; }
 	.blk .ln, .blk .res, .blk .row, .blk .val, .blk .read, .blk .route { margin: .2rem 0; }
@@ -297,12 +304,21 @@
 	.blk .moment { min-height: 3rem; }
 	/* Claim checks, generated on demand at the end. */
 	#claims .cl { display: flex; gap: .6rem; align-items: baseline; padding: .35rem .4rem; border-radius: 7px; }
-	#claims .cl .tick { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; border: 1px solid var(--line); border-radius: 50%; cursor: pointer; display: inline-block; }
-	#claims .cl .tick:hover { border-color: var(--accent); }
-	#claims .cl.done .tick { border-color: var(--ba-good-fg); background: var(--ba-good); }
+	#claims .cl .tick {
+		flex: 0 0 auto; width: 1.15rem; height: 1.15rem; border: 1px solid var(--line);
+		border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center;
+		justify-content: center; font-size: .72rem; line-height: 1; color: transparent;
+		transition: border-color .15s, background .15s, color .15s;
+	}
+	#claims .cl .tick::after { content: "\2713"; }
+	#claims .cl .tick:hover { border-color: var(--accent); color: var(--muted); }
+	#claims .cl.done .tick { border-color: var(--ba-good-fg); background: var(--ba-good); color: var(--ba-good-fg); }
 	#claims .cl.done .txt { opacity: .5; }
-	#claims .cl .tick::after { content: ""; }
-	#cl-score { font-weight: 600; color: var(--accent); }
+	#cl-score { font-weight: 600; color: var(--accent); margin-left: auto; }
+	/* Before the checks exist there is nothing to frame: the button stands alone. */
+	.blk.bare.empty { border: 0; background: none; box-shadow: none; }
+	.blk.bare.empty .blk-head { border: 0; background: none; padding-left: 0; }
+	.blk.bare.empty .blk-body { display: none; }
 	/* Ask-from-selection: floating chip, question input, pinned Q&A card. */
 	#askchip, #askpop { position: absolute; z-index: 60; }
 	#askchip {
@@ -946,8 +962,21 @@
 	function jsonBlock(raw) {
 		return '<pre><code>' + tintJson(esc(raw)) + '</code></pre>';
 	}
+	function chipify(t) {
+		// {file.go:139} in any answer becomes a real chip, using the href bases the
+		// page's own anchors already carry. Unknown files stay plain code.
+		const base = new Map();
+		document.querySelectorAll('a.path[href]').forEach(a => {
+			const href = a.getAttribute('href');
+			const m = href.match(/\/([^/]+):(\d+)$/);
+			if (m) base.set(m[1], href.slice(0, href.length - m[2].length - 1));
+		});
+		return t.replace(/\{([\w.\-]+):(\d+)\}/g, (m, f, l) => base.has(f)
+			? '<a class="path" href="' + base.get(f) + ':' + l + '">' + f + ':' + l + '</a>'
+			: '<code>' + f + ':' + l + '</code>');
+	}
 	function inline(t) {
-		return t
+		return chipify(t)
 			.replace(/\[([^\]]+)\]\(((?:cursor|vscode|https?):[^)\s]+)\)/g, '<a href="$2">$1</a>')
 			.replace(/`([^`]+)`/g, (m, code) => {
 				const pretty = code.length > 40 ? prettyJson(unesc(code)) : null;
@@ -1213,7 +1242,7 @@
 					+ '<div class="res">' + (s.result?.text || '') + ' <span class="tone-'
 					+ (s.result?.tone || 'good') + '">' + (s.result?.note || '') + '</span></div>';
 				state.textContent = s.state || '';
-				state.style.color = on ? 'var(--accent)' : 'var(--ba-bad-fg)';
+				state.classList.toggle('off', !on);
 				tgl.style.background = on ? 'var(--accent)' : 'var(--line)';
 				knob.style.left = on ? '22px' : '2px';
 				tgl.setAttribute('aria-pressed', String(on));
@@ -1423,7 +1452,7 @@
 			genBtn.disabled = true;
 			genBtn.textContent = 'generating…';
 			const id = newId();
-			claimWaiters[id] = () => { genBtn.disabled = false; genBtn.textContent = 'regenerate'; };
+			claimWaiters[id] = () => { genBtn.disabled = false; };
 			submitQuestion({
 				id, stop: '', selection: '', parent: '', via: 'ledger',
 				question: 'generate the claim checks for this page, one claim per bullet, each with its file:line chip',
@@ -1431,9 +1460,13 @@
 		});
 		window.__renderClaims = (answer) => {
 			const rows = answer.split('\n').map(l => l.trim()).filter(l => l.startsWith('- '));
+			if (!rows.length) return;
 			clBody.innerHTML = rows.map(l =>
 				'<div class="cl"><span class="tick"></span><span class="txt">' + inline(esc(l.slice(2))) + '</span></div>'
 			).join('');
+			document.getElementById('claims-blk').classList.remove('empty');
+			genBtn.classList.remove('primary');
+			genBtn.textContent = 'regenerate';
 			wire();
 		};
 	}

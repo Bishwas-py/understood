@@ -58,16 +58,22 @@ def b_switch(repo, sid, c):
     on = c.get("on", {})
     lines = "".join(f'<div class="ln">{inline(repo, l)}</div>' for l in on.get("lines", []))
     res = on.get("result", {})
-    toggle = (
-        '<button class="tgl" type="button" aria-pressed="true"><span class="knob"></span></button>'
+    toggle = '<button class="tgl" type="button" aria-pressed="true"><span class="knob"></span></button>'
+    bits = []
+    if c.get("ref"):
+        bits.append(chip(repo, c["ref"]))
+    if c.get("label"):
+        bits.append(f'<code>{esc(c["label"])}</code>')
+    head = (
+        f'<div class="blk-head">{toggle}{" ".join(bits)}'
+        f'<span class="state">{esc(on.get("state", "in the build"))}</span></div>'
     )
-    state = f'<span class="state">{esc(on.get("state", "IN THE BUILD"))}</span>'
     body = (
         f'<div class="blk-body">{lines}'
         f'<div class="res">{inline(repo, res.get("text", ""))} '
         f'<span class="tone-{res.get("tone", "good")}">{inline(repo, res.get("note", ""))}</span></div></div>'
     )
-    return _cfg("switch", repo, c, _head(repo, c.get("ref"), c.get("label", ""), toggle) + state + body, sid)
+    return _cfg("switch", repo, c, head + body, sid)
 
 
 def b_race(repo, sid, c):
@@ -364,12 +370,14 @@ def ledger_html(spec: dict) -> str:
             f'{inline(spec["repo"], r["claim"])}</span></div>'
             for r in rows
         )
+    # Nothing to frame until the checks exist: just the button, then the card.
+    empty = " empty" if not rows else ""
     return (
         '<section id="claims"><h2>Claim checks <span class="hint">'
         'generated from this page and how far you took the conversation</span></h2>'
-        '<div class="blk"><div class="blk-head">'
+        f'<div class="blk bare{empty}" id="claims-blk"><div class="blk-head">'
         '<button id="gen-claims" class="btn primary" type="button">generate the checks</button>'
-        '<span id="cl-score" style="margin-left:auto"></span></div>'
+        '<span id="cl-score"></span></div>'
         f'<div class="blk-body" id="cl-body">{body}</div></div></section>'
     )
 
