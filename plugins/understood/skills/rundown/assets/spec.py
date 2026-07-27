@@ -411,6 +411,14 @@ def walk_refs(spec: dict):
             refs = block.get("refs") or {}
             for key in refs:
                 yield f"{sid}.block.refs.{key}", refs, key
+            # an issue page puts its most-clicked chips outside the block
+            for i, k in enumerate(stop.get("knobs") or []):
+                if k.get("ref"):
+                    yield f"{sid}.knobs[{i}].ref", k, "ref"
+            for key in ("says", "did", "differs"):
+                r = (stop.get("receipt") or {}).get(key + "Ref")
+                if r:
+                    yield f"{sid}.receipt.{key}Ref", stop["receipt"], key + "Ref"
 
 
 def load(path: Path) -> dict:
