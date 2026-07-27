@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import mermaid
+from icons import icon, sprite
 from spec import (BLOCK_TYPES, EM_DASH, chip, esc, expand_root, inline, json_block, load,
                   pretty, ref_href, ref_label)
 
@@ -260,6 +261,55 @@ def b_flow(repo, sid, c):
     return f'<div class="blk flow" data-block="flow" data-stop="{sid}"><div class="blk-body">{svg}{cap}</div></div>'
 
 
+def b_table(repo, sid, c):
+    """Rows of evidence. Sortable, filterable from its own head, one verdict each."""
+    cols = c.get("columns", [])
+    head = "".join(
+        '<th data-k="%d"%s>%s%s</th>' % (i, ' class="num"' if col.get("num") else "",
+                                         esc(col.get("label", col["key"])), icon("sort"))
+        for i, col in enumerate(cols)
+    )
+    body = []
+    for r in c.get("rows", []):
+        tone = r.get("tone", "")
+        cells = []
+        for col in cols:
+            v = r.get(col["key"], "")
+            if col.get("verdict"):
+                cells.append(f'<td><span class="verdict-pill {esc(tone or "good")}">'
+                             f'{icon("good" if tone == "good" else "bad")}{esc(v)}</span></td>')
+            else:
+                cls = " ".join(x for x in ("mono" if col.get("mono") else "", "num" if col.get("num") else "") if x)
+                cells.append(f'<td class="{cls}">{inline(repo, str(v))}</td>')
+        body.append(f'<tr class="{esc(tone)}" data-v="{esc(r.get("verdict", ""))}">{"".join(cells)}</tr>')
+    filters = "".join(
+        f'<button class="chipf{" on" if i == 0 else ""}" data-v="{esc(f)}">{esc(f)}</button>'
+        for i, f in enumerate(["all", *c.get("filters", [])])
+    ) if c.get("filters") else ""
+    title = f'<span class="t-title">{esc(c["title"])}</span>' if c.get("title") else ""
+    note = f'<span class="hint">{inline(repo, c["note"])}</span>' if c.get("note") else ""
+    controls = f'<span class="t-filters">{filters}</span>' if filters else ""
+    foot = f'<div class="tbl-foot"><span>{inline(repo, c["foot"])}</span></div>' if c.get("foot") else ""
+    return (f'<div class="tbl-wrap"><div class="tbl-head">{icon("table")}{title}{note}{controls}'
+            f'{_ref(repo, c)}</div><div class="tbl-scroll"><table class="ev">'
+            f'<thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table></div>{foot}</div>')
+
+
+def b_bar(repo, sid, c):
+    """One measure split into its parts, so a ratio is seen instead of worked out."""
+    parts = c.get("parts", [])
+    total = sum(float(p.get("value", 0)) for p in parts) or 1
+    fills = "".join(f'<span class="{esc(p.get("tone", "good"))}" style="flex:{p.get("value", 0)}"></span>'
+                    for p in parts)
+    keys = "".join(
+        f'<span><i class="sw {esc(p.get("tone", "good"))}"></i><b>{esc(p.get("value", 0))}</b> '
+        f'{inline(repo, p.get("label", ""))}</span>' for p in parts
+    )
+    note = f'<span class="bar-note">{inline(repo, c["note"])}</span>' if c.get("note") else ""
+    return (f'<div class="bars">{_ref(repo, c)}<div class="bar">{fills}</div>'
+            f'<div class="bar-key">{keys}{note}</div></div>')
+
+
 def b_raw(repo, sid, c):
     return f'<div class="blk" data-block="raw" data-stop="{sid}">{c.get("html", "")}</div>'
 
@@ -267,7 +317,8 @@ def b_raw(repo, sid, c):
 BLOCKS = {
     "switch": b_switch, "race": b_race, "chain": b_chain, "dial": b_dial,
     "probe": b_probe, "bind": b_bind, "ledger": b_ledger, "stepper": b_stepper,
-    "map": b_map, "flow": b_flow, "space": b_space, "angle": b_angle, "stack": b_stack, "raw": b_raw,
+    "map": b_map, "flow": b_flow, "space": b_space, "angle": b_angle, "stack": b_stack,
+    "table": b_table, "bar": b_bar, "raw": b_raw,
 }
 
 
@@ -296,24 +347,92 @@ def think_html(repo: dict, stop_id: str, think: list) -> str:
     return f'<ul class="think">{"".join(items)}</ul>'
 
 
-def stop_html(repo: dict, stop: dict) -> str:
+def receipt_html(repo: dict, r: dict) -> str:
+    """What the source says, what the run did, and the difference. The difference
+    is a phrase: an explanation belongs in why, not here."""
+    rows = [
+        ("said", "says", r.get("says"), r.get("saysFrom")),
+        ("filed", "the run did", r.get("did"), r.get("didFrom")),
+        ("delta", "what differs", r.get("differs"), r.get("differsFrom")),
+    ]
+    out = []
+    for cls, label, value, note in rows:
+        if not value:
+            continue
+        tail = f'<span class="from">{inline(repo, note)}</span>' if note else ""
+        out.append(f'<div class="r-row {cls}"><b>{icon(label.split()[0] if cls != "delta" else "differs")}'
+                   f'{esc(label)}</b><span class="v">{inline(repo, value)}{tail}</span></div>')
+    return f'<div class="receipt">{"".join(out)}</div>' if out else ""
+
+
+def why_html(repo: dict, text: str) -> str:
+    """The mechanism. The loudest thing on the card after the difference itself."""
+    return f'<div class="why"><b>{icon("why")}why</b><p>{inline(repo, text)}</p></div>' if text else ""
+
+
+def knobs_html(repo: dict, rows: list) -> str:
+    """What is adjustable, and what each one does today. Never what to change:
+    a reader who is handed the fix has nothing left to work out."""
+    if not rows:
+        return ""
+    body = "".join(
+        f'<tr><td class="k">{esc(k.get("what", ""))}</td>'
+        f'<td class="does">{inline(repo, k.get("does", ""))}</td>'
+        f'<td class="where">{chip(repo, k["ref"]) if k.get("ref") else ""}</td></tr>'
+        for k in rows
+    )
+    return ('<div class="knobs"><div class="k-label">what is adjustable here, and what each one does today</div>'
+            f"<table>{body}</table></div>")
+
+
+def carry_html(repo: dict, rule: str) -> str:
+    """The rule, not the incident. This is the line a reader takes to the next
+    project, so it must survive without any of this page's facts."""
+    return f'<div class="carry">{icon("carry")}<p>{inline(repo, rule)}</p></div>' if rule else ""
+
+
+def stop_html(repo: dict, stop: dict, issue: bool = False) -> str:
     sid = stop["id"]
     ref = stop.get("ref")
     chip_html = ""
     sym = ""
     if ref:
         chip_html = " " + chip(repo, ref)
-        if isinstance(ref, dict) and ref.get("symbol"):
+        if isinstance(ref, dict) and ref.get("symbol") and not issue:
             sym = f' <code>{esc(ref["symbol"])}</code>'
-    head = (
-        f'<p class="head"><span class="action" data-anchor="{sid}.head">'
-        f'{inline(repo, stop.get("headline", ""))}</span>{chip_html}{sym}</p>'
-    )
     block = ""
     if stop.get("block"):
         fn = BLOCKS.get(stop["block"].get("type"), b_raw)
         block = fn(repo, sid, stop["block"])
-    return f'<li id="{sid}">{head}{block}{think_html(repo, sid, stop.get("think") or [])}</li>'
+    think = think_html(repo, sid, stop.get("think") or [])
+
+    if not issue:
+        head = (
+            f'<p class="head"><span class="action" data-anchor="{sid}.head">'
+            f'{inline(repo, stop.get("headline", ""))}</span>{chip_html}{sym}</p>'
+        )
+        return f'<li id="{sid}">{head}{block}{think}</li>'
+
+    # One finding, one card: the evidence, the mechanism, the path and the
+    # controls are rows of the same object, never a stack of separate panels.
+    sev = stop.get("severity", "s2")
+    state = stop.get("state", "open")
+    head = (
+        f'<span class="sev {esc(sev)}">{icon(sev, "i lg")}</span>'
+        f'<p class="head"><span class="claim action" data-anchor="{sid}.head">'
+        f'{inline(repo, stop.get("headline", ""))}</span>'
+        f'<button class="state {esc(state)}" data-stop="{sid}">{icon(state)}{esc(state)}</button>'
+        f'<span class="at">{chip_html}</span></p>'
+    )
+    case = "".join(p for p in (
+        receipt_html(repo, stop.get("receipt") or {}),
+        why_html(repo, stop.get("why", "")),
+        block,
+        knobs_html(repo, stop.get("knobs") or []),
+    ) if p)
+    case = f'<div class="case">{case}</div>' if case else ""
+    return (f'<li class="stop" id="{sid}" data-state="{esc(state)}">'
+            f'{head}{case}{think}{carry_html(repo, stop.get("carry", ""))}</li>')
 
 
 def pipeline_html(repo: dict, pipe: dict) -> str:
@@ -400,29 +519,104 @@ def viva_html(spec: dict) -> str:
     )
 
 def nav_html(spec: dict) -> str:
-    out = ['<nav id="toc"><p class="toc-title">', esc(spec.get("navTitle", "stops")), "</p><ol>"]
+    """On a change the sidebar hunts by file:line. On an issue it hunts by
+    finding: the code is the address of the defect, never its subject."""
+    issue = spec.get("kind") == "issue"
+    title = spec.get("navTitle") or (f'{count_stops(spec)} findings' if issue else "stops")
+    out = ['<nav id="toc"><p class="toc-title">', esc(title), "</p><ol>"]
     for stage in spec.get("stages", []):
         out.append(f'<li><a class="sec" href="#{esc(stage["id"])}">{esc(stage.get("title", ""))}</a></li>')
         out.append('<ol class="sub">')
         for stop in stage.get("stops", []):
             ref = stop.get("ref")
+            if issue:
+                sev = stop.get("severity", "s2")
+                short = stop.get("short") or stop.get("headline", "")
+                where = f'<span class="where">{esc(ref_label(ref))}</span>' if ref else ""
+                out.append(
+                    f'<li><a class="item" href="#{esc(stop["id"])}">'
+                    f'<span class="sev {esc(sev)}">{icon(sev)}</span>'
+                    f'<span class="what">{esc(short)}{where}</span></a></li>'
+                )
+                continue
             label = ref_label(ref) if ref else stop["id"]
             out.append(f'<li><a href="#{esc(stop["id"])}">{esc(label)}</a></li>')
         out.append("</ol>")
+    if issue:
+        out.append('<li><a class="sec" href="#cost">what it costs</a></li>')
     out.append('<li><a class="sec" href="#viva">the questions</a></li>')
     out.append('<li><a class="sec" href="#discuss">discussion</a></li>')
     out.append("</ol></nav>")
     return "".join(out)
 
 
+def count_stops(spec: dict) -> int:
+    return sum(len(stage.get("stops") or []) for stage in spec.get("stages") or [])
+
+
+def bar_html(spec: dict) -> str:
+    """The one measure the whole page is about, split into its parts."""
+    if spec.get("kind") != "issue":
+        return ""
+    return ""
+
+
+def findings_bar(spec: dict) -> str:
+    """A record, not an essay: how many findings there are and what state they are in."""
+    states = [s.get("state", "open") for stage in spec.get("stages") or [] for s in stage.get("stops") or []]
+    total = len(states)
+    chips = "".join(
+        f'<button class="filter{" on" if k == "all" else ""}" data-f="{k}">{icon(k if k != "all" else "cost")}'
+        f'{k}<span class="c">{total if k == "all" else states.count(k)}</span></button>'
+        for k in ("all", "open", "agreed", "closed", "holds")
+    )
+    return (
+        f'<div class="docket-bar"><span class="n">{total}</span><span class="of">findings</span>{chips}</div>'
+        '<div class="empty-state" id="empty"><span class="big" id="empty-title"></span>'
+        '<span id="empty-why"></span></div>'
+    )
+
+
+def cost_html(spec: dict) -> str:
+    """What each finding is costing. Arithmetic, never advice: the reader decides
+    what to do about it, this only says what it is worth."""
+    rows = spec.get("cost") or []
+    if not rows:
+        return ""
+    body = "".join(
+        f'<tr><td class="q"><a class="to-finding" href="#{esc(r["stop"])}">{esc(r["what"])}</a></td>'
+        f'<td class="num">{esc(r.get("rows", ""))}</td><td>{esc(r.get("costs", ""))}</td>'
+        f'<td class="does">{inline(spec["repo"], r.get("note", ""))}</td>'
+        f'<td><span class="verdict-pill {"bad" if r.get("state") == "open" else "good"}">'
+        f'{esc(r.get("state", "open"))}</span></td></tr>'
+        for r in rows
+    )
+    head = "".join('<th data-k="%d"%s>%s%s</th>' % (i, ' class="num"' if k == "rows" else "", k, icon("sort"))
+                   for i, k in enumerate(("finding", "rows", "costs", "note", "state")))
+    return (
+        f'<section id="cost"><h2>{icon("cost")}What it costs '
+        '<span class="hint">every finding, by what it is costing the run</span></h2>'
+        f'<div class="tbl-wrap"><div class="tbl-scroll"><table class="ev">'
+        f'<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
+        f'<div class="tbl-foot"><span>sorted by what it costs. What to do about it is yours.</span></div>'
+        "</div></section>"
+    )
+
+
 def body_html(spec: dict) -> str:
     repo = spec["repo"]
+    issue = spec.get("kind") == "issue"
     parts = [pipeline_html(repo, spec.get("pipeline") or {})]
+    if issue:
+        parts.append(findings_bar(spec))
     for stage in spec.get("stages", []):
         tag = f' <span class="tag">{esc(stage["tag"])}</span>' if stage.get("tag") else ""
-        parts.append(f'<h2 id="{esc(stage["id"])}">{esc(stage.get("title", ""))}{tag}</h2>')
-        stops = "".join(stop_html(repo, s) for s in stage.get("stops", []))
-        parts.append(f'<ol class="steps">{stops}</ol>')
+        glyph = icon(stage["icon"]) if stage.get("icon") else ""
+        parts.append(f'<h2 id="{esc(stage["id"])}">{glyph}{esc(stage.get("title", ""))}{tag}</h2>')
+        stops = "".join(stop_html(repo, s, issue) for s in stage.get("stops", []))
+        parts.append(f'<ol class="steps{" stops" if issue else ""}">{stops}</ol>')
+    if issue:
+        parts.append(cost_html(spec))
     parts.append(viva_html(spec))
     parts.append(discussion_html(repo, spec.get("discussion") or []))
     return "\n".join(parts)
@@ -442,7 +636,8 @@ def render(spec: dict) -> str:
         ensure_ascii=False,
     )
     html = (
-        tpl.replace("{{REPO}}", where)
+        tpl.replace("{{ICONS}}", sprite())
+        .replace("{{REPO}}", where)
         .replace("{{LOOK}}", look_html(spec))
         .replace("{{TITLE}}", esc(spec.get("title", "rundown")))
         .replace("{{SUBTITLE}}", sub)

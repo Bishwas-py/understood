@@ -1,6 +1,6 @@
 ---
 name: rundown
-description: Build a self-contained HTML rundown for presenting a change to a senior reviewer live, step by step through the real code. Use when the user invokes /rundown, asks for a walkthrough of a change, or says they have to "walk someone through" a PR/feature/codebase, "present this on a call", "demo the code", or wants "a script for the review". Produces one HTML file of clickable file:line stops carrying operable live blocks (switch, dial, chain, race...) whose controls are the code references themselves, never prose to read aloud. Part of the "understood" family of low-cognitive-load patterns.
+description: Build a self-contained HTML rundown for presenting a change to a senior reviewer live, step by step through the real code. Use when the user invokes /rundown, asks for a walkthrough of a change, asks for a rundown of an audit, a bug, or a set of issues, or says they have to "walk someone through" a PR/feature/codebase, "present this on a call", "demo the code", or wants "a script for the review". Produces one HTML file of clickable file:line stops carrying operable live blocks (switch, dial, chain, race...) whose controls are the code references themselves, never prose to read aloud. Part of the "understood" family of low-cognitive-load patterns.
 ---
 
 # rundown
@@ -16,6 +16,7 @@ Exactly one file: a self-contained HTML page built from `assets/template.html`.
 - a pipeline block first: the whole journey in arrow lines, one real record from an actual run riding along, every line stamped with where it lives (`#page`, `#server`, ...)
 - stages down the middle ordered by the data's journey, each stop a place to put the cursor
 - a round of questions at the end: a dozen from a senior reviewer on a slider, the reader answers what they can, and the score that comes back says how much of this they could defend under questioning
+- or, on an issue page, findings with their receipts, what each one costs, and no fix anywhere in sight
 - floating sidebar, every stop listed by `file:line`, current position highlighted on scroll
 - every path and every bare line number is a link that opens the editor at that exact line
 - live blocks inside the stops: operable components (a switch, a dial, a chain) whose control surface is a code reference; understanding is operated, not read
@@ -74,6 +75,26 @@ Beauty is not decoration here. A page the reader wants to look at is a page they
 **One weight of ink per idea.** A state label is a small pill, not a heading. A claim is bold, its proof is plain, a code chip is monospace. If two things look equally loud, the reader has to decide what matters, which is the job the page was supposed to do.
 
 **Degrade visibly, never silently.** A card whose text was edited says so. A refused action says why. An empty section shows only its button, not an empty frame waiting to be filled.
+
+**Essential only, and say each thing once.** The commonest failure is not length, it is repetition: the same fact in the headline, again in the difference, again in the fix. Every element has one job. A headline claims, a receipt shows, a why explains, a knob lists, a carry generalises. If two of them are saying the same sentence, one of them is decoration and comes out.
+
+**One finding, one card.** On an issue page the evidence, the mechanism, the path and the controls are rows of a single object with one border. Three stacked panels for one defect reads as three problems.
+
+**One type scale, five steps.** A page that grew twenty-two font sizes has no scale, it has drift. Sizes come from the template's variables and nowhere else.
+
+**Borders separate, shadows do not.** A rundown is a work surface. Shadows make a card float for no reason and add noise to a dense page.
+
+**Calm by default, one loud state.** Only the state that still wants the reader is coloured; everything settled is outlined and quiet. If `agreed` shouts as loudly as `open`, the page has no signal left.
+
+**Controls in the head, keys in the foot.** A table's filters go in its own heading row, where they are visible before the rows are read. The colour key goes underneath, where it is needed while reading. Filters below a scrollable body are found after they were useful.
+
+**A filter that matches nothing says so.** Hide the stage headings that emptied with it, and put a sentence where the results would have been. A page of orphaned headings reads as broken.
+
+**A glyph before letter-spaced caps needs its own air.** Tracking pushes the first letter right and nothing pushes the glyph left, so a label like WHY looks glued to its icon at the default gap.
+
+**One vocabulary per meaning.** Blue monospace is a code reference and nothing else. A link to a finding, a state, a verdict each get their own paint. Two meanings sharing one style is how a reader learns to distrust the page.
+
+**Icons carry a type, never decoration.** One glyph per idea, from the set in `spec.ICONS`, fetched once and inlined by `icons.py` so the page still opens with no network. If a glyph is not saying what kind of thing this is, it does not go on the page.
 
 **Escape exactly once.** Text is escaped at the boundary it is emitted from, and anything already html is marked as such and never processed again. Two bugs today came from breaking this: json escaped into a script tag it could not survive, and a pre-rendered chip escaped a second time so the anchor printed as source.
 
@@ -195,9 +216,69 @@ And decisions render as state pairs, in their own late section, only the 2 or 3 
 
 All of these classes (`io`, `pipe`, `rec`, `where`, `tag`, `ba`) ship in the template's stylesheet; write the markup, never inline styles.
 
+## Two kinds of rundown
+
+A rundown is one of two things, and the spec says which with `"kind"`. Everything below applies to both unless a section says otherwise.
+
+| | `change` (the default) | `issue` |
+|---|---|---|
+| what it is | a change you have to defend | evidence of where the system was wrong |
+| a stop is | a claim about how it works | a finding, with its receipts |
+| the code chip is | the subject | the address of the defect, never the subject |
+| the sidebar lists | `file:line` | the findings, by what each one says |
+| it ends with | questions and a score | what each finding costs, then questions |
+| it gives you | the reasoning behind the change | **never the fix** |
+
+**An issue rundown does not solve anything.** That is the whole discipline of it. It shows where the defect is, what mechanism produced it, and which controls exist around it. The reader works out the fix, because a reader handed a fix has learned nothing and will not recognise the next one. The validator enforces this: a knob or a carry line that reads as a recommendation is a build error.
+
+### A finding, on an issue page
+
+One finding is one card, never a stack of panels. In this order, and only the rows that carry weight:
+
+```json
+{
+  "id": "f2",
+  "severity": "s1",
+  "state": "open",
+  "short": "100'100 filed as pension income",
+  "headline": "100'100 is her gross salary, and the run filed it as AHV/IV pension income",
+  "ref": { "path": "app/core/extraction/schema.go", "pattern": "Name: \"ahvIvIncomeChf\"" },
+  "receipt": {
+    "says": "Bruttolohn total 100'100", "saysFrom": "Lohnausweis 2025, line 8",
+    "did": "ahvIvIncomeChf = 100'100", "didFrom": "graded needs checking",
+    "differs": "right number, wrong field", "differsFrom": "she has no AHV or IV income at all"
+  },
+  "why": "the field is named AHV/IV income, and the Lohnausweis prints AHV four times, so a salary page outranks every other page for a pension question",
+  "block": { "type": "chain", "hops": [...], "broke": 2 },
+  "knobs": [
+    { "what": "the ask", "does": "carries no hint about what this field means", "ref": {...} },
+    { "what": "the ranking", "does": "lexical, any page saying AHV scores", "ref": {...} }
+  ],
+  "carry": "a field named with a common token ranks on every page that prints that token"
+}
+```
+
+**The receipt is three values, not three sentences.** What the source says, what the run did, and the difference as a **phrase**. `right number, wrong field`. An explanation there is a `why` in the wrong place.
+
+**The why is the mechanism**, and it is the most valuable thing on the card. It answers how the difference was produced, in terms of the system, not the incident. If it reads like a restatement of the difference, it is not a why yet.
+
+**A knob says what a control does today**, never what to do with it. `carries no hint about what this field means` is a knob. `add a hint here` is a fix and the build refuses it.
+
+**The carry line is a rule that outlives the page.** It must survive without any of this page's facts, because it is the only part a reader takes to the next project. *"a silent skip and a real refusal look identical downstream"* travels; *"100'100 was filed wrongly"* does not.
+
+**`state`** is one of `open`, `agreed`, `closed`, `holds`. It is a spec field: pressing it on the page asks you for the edit rather than pretending the page owns it. `holds` is for a finding that is good news, and it is worth having some.
+
+**`severity`** is `s1`, `s2`, `s3` or `ok`, and it draws the badge and the sidebar mark.
+
+### What it costs, at the end
+
+`spec.cost` is a table of findings ordered by what each is costing the run: rows affected, what kind of cost (coverage, correctness, trust, cosmetic), and its state. Arithmetic, so the reader can choose where to spend. Not a plan, and not ranked by how easy anything is to fix.
+
 ## The questions at the end
 
 The page closes with a round of questions, not a summary. The reader presses **take the questions** when they have finished reading, and you become the senior reviewer on the other side of the call: a dozen questions on a slider, they answer what they can, and you come back with a score and the mistakes behind it.
+
+On an issue page they come after what it costs, and they rehearse the findings rather than the change: *a value comes back wrong again next month, which stage do you look at first, and what would tell you it was that one?* That is what makes a lesson stick, and it is why an issue page ends with questions instead of a plan.
 
 Every turn travels the ask loop with `"via": "viva"`, so the whole round lives in the same two files as everything else. Rounds stack: a reader can take another one, and the earlier rounds stay on the page under their own headings.
 
@@ -319,10 +400,12 @@ curl -fsSL https://raw.githubusercontent.com/Bishwas-py/understood/main/install.
 
 A failing validate is a build error, not a warning: it means a line number in the page is a lie.
 
-1. Write the spec. Start from `assets/example.json`, keep the ids stable, and let every ref carry a pattern.
+1. Write the spec. Start from `assets/example.json`, keep the ids stable, and let every ref carry a pattern. Set `"kind": "issue"` when the page is about defects rather than a change.
 2. `cli.py save <slug> <spec>`, which snapshots, writes, validates, and builds in one step. Add `--fix` when the only complaint is drift.
 3. Serve, then start the waiter.
 4. Read the built page at the width the reader will use, and click through every block.
+
+Glyphs come from `assets/icons.json`, cached by `python3 assets/icons.py`. A build with no cache renders without them rather than failing, so refresh it when a new name lands in `spec.ICONS`.
 
 The renderer owns the sidebar, the ids, the editor links, and the escaping. Never hand-edit `page.html`: the next build overwrites it, and the spec is the thing that gets reviewed, corrected, and rebuilt.
 

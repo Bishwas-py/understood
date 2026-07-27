@@ -233,7 +233,61 @@ BLOCK_SHAPE = {
 }
 
 
+BLOCK_SHAPE["table"] = {
+    "does": "rows of evidence, sortable, each carrying its own verdict",
+    "required": ["columns", "rows"],
+    "optional": ["ref", "title", "note", "foot", "filters"],
+    "example": {
+        "type": "table", "ref": R_CHECK, "title": "six live probes",
+        "note": "27.07.2026, top five slots",
+        "columns": [
+            {"key": "asked", "label": "asked"},
+            {"key": "back", "label": "what came back", "mono": True},
+            {"key": "truth", "label": "the truth", "mono": True},
+            {"key": "verdict", "label": "verdict", "verdict": True},
+        ],
+        "rows": [
+            {"asked": "what was the net salary?", "back": "not found", "truth": "88'554.70",
+             "verdict": "lost", "tone": "bad"},
+            {"asked": "Kinderbetreuung Kosten", "back": "17'280.00", "truth": "17'280.00",
+             "verdict": "exact", "tone": "good"},
+        ],
+        "filters": ["lost", "exact"],
+        "foot": "the three that lost never saw a document at all",
+    },
+}
+BLOCK_SHAPE["bar"] = {
+    "does": "one measure split into its parts, so a ratio is seen rather than worked out",
+    "required": ["parts"],
+    "optional": ["ref", "note"],
+    "example": {
+        "type": "bar", "ref": R_CHECK, "note": "98% of what it answered, 68% of what was wanted",
+        "parts": [
+            {"label": "answered and right", "value": 48, "tone": "good"},
+            {"label": "answered and wrong", "value": 1, "tone": "bad"},
+            {"label": "never asked", "value": 23, "tone": "absent"},
+        ],
+    },
+}
+
 BLOCK_TYPES = set(BLOCK_SHAPE)
+
+# A rundown is one of two kinds. A change is defended; an issue is evidenced.
+KINDS = ("change", "issue")
+STATES = ("open", "agreed", "closed", "holds")
+SEVERITIES = ("s1", "s2", "s3", "ok")
+
+# One glyph per idea, drawn from lucide and inlined at build time. The names on
+# the left are what a spec says; the names on the right are what iconify serves.
+ICONS = {
+    "s1": "triangle-alert", "s2": "circle-alert", "s3": "circle-alert", "ok": "circle-check",
+    "open": "circle-dot", "agreed": "handshake", "closed": "badge-check", "holds": "circle-check",
+    "says": "file-text", "filed": "terminal", "differs": "git-compare", "why": "circle-question-mark",
+    "carry": "target", "knobs": "sliders-horizontal", "cost": "list-ordered", "ask": "circle-question-mark",
+    "table": "table-2", "bar": "gauge", "trace": "move-right", "good": "circle-check", "bad": "circle-alert",
+    "search": "file-search", "sort": "arrow-right", "page": "file-text", "form": "clipboard-list",
+    "model": "sparkles", "row": "table-2", "magnet": "magnet",
+}
 
 
 def esc(text: str) -> str:

@@ -13,8 +13,9 @@ import re
 import sys
 from pathlib import Path
 
-from spec import (BLOCK_SHAPE, CHIP_RE, EM_DASH, NAV_VERBS, expand_root, find_file, load,
-                  pattern_lines, read_lines, ref_parts, ref_str, save, walk_refs)
+from spec import (BLOCK_SHAPE, CHIP_RE, EM_DASH, KINDS, NAV_VERBS, SEVERITIES, STATES,
+                  expand_root, find_file, load, pattern_lines, read_lines, ref_parts, ref_str,
+                  save, walk_refs)
 
 
 
@@ -121,6 +122,53 @@ def check_chart(rep: Report, where: str, block: dict) -> None:
             rep.warn(where, f"refs.{key} names no node in the chart, so nothing links to it")
 
 
+SOLVING = re.compile(
+    r"\b(the (cheap|obvious|right|quick) fix|we should|you should|just |simply |i (would|d) (add|change|use))\b", re.I
+)
+
+
+def check_kind(rep: Report, spec: dict) -> None:
+    """An issue page evidences, a change page defends. They owe different things."""
+    kind = spec.get("kind", "change")
+    if kind not in KINDS:
+        rep.error("spec", f"kind must be one of {', '.join(KINDS)}, not {kind!r}")
+        return
+    if kind != "issue":
+        for stage in spec.get("stages") or []:
+            for stop in stage.get("stops") or []:
+                for key in ("severity", "state", "receipt", "knobs", "carry"):
+                    if stop.get(key):
+                        rep.warn(stop.get("id", "stop"), f"{key} only means something on kind: issue")
+        return
+
+    for stage in spec.get("stages") or []:
+        for stop in stage.get("stops") or []:
+            sid = stop.get("id", "stop")
+            if stop.get("state") not in STATES:
+                rep.error(sid, f"a finding needs a state, one of {', '.join(STATES)}")
+            if stop.get("severity") and stop["severity"] not in SEVERITIES:
+                rep.error(sid, f"severity must be one of {', '.join(SEVERITIES)}")
+            if not stop.get("why") and stop.get("state") != "holds":
+                rep.warn(sid, "no why, so the page shows a symptom and never its mechanism")
+            if not stop.get("carry") and stop.get("state") != "holds":
+                rep.warn(sid, "no carry line, so nothing here survives past this filing")
+            for i, k in enumerate(stop.get("knobs") or []):
+                if not k.get("what") or not k.get("does"):
+                    rep.error(f"{sid}.knobs[{i}]", "a knob needs what it is and what it does today")
+                if SOLVING.search(str(k.get("does", ""))):
+                    rep.error(f"{sid}.knobs[{i}]",
+                              "this reads as a recommendation. Say what the control does today, not what to do with it")
+            for key in ("why", "carry"):
+                if stop.get(key):
+                    check_text(rep, spec.get("repo") or {}, f"{sid}.{key}", stop[key])
+            if stop.get("carry") and SOLVING.search(stop["carry"]):
+                rep.error(f"{sid}.carry", "a carry line is a rule that outlives this page, never a fix")
+    for i, row in enumerate(spec.get("cost") or []):
+        for key in ("what", "stop"):
+            if not row.get(key):
+                rep.error(f"cost[{i}]", f"a cost row needs {key}")
+
+
 def check_text(rep: Report, repo: dict, where: str, text: str) -> None:
     if EM_DASH in text:
         rep.error(where, "em-dash in page text, use a comma, period, or parentheses")
@@ -193,6 +241,8 @@ def validate(spec: dict) -> Report:
     }
     if "flow" not in kinds:
         rep.warn("spec", "no flow chart, so the reader never sees the journey in one picture")
+
+    check_kind(rep, spec)
 
     seen_look: set[str] = set()
     for i, rule in enumerate(spec.get("look") or []):

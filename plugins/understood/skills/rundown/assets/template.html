@@ -195,7 +195,7 @@
 	ul.plain { padding-left: 1.1rem; margin: .4rem 0; }
 	ul.plain li { margin-bottom: .3rem; }
 	/* Data-first components: pipeline block, IN/OUT boundary, stage tag, BEFORE/AFTER pair. */
-	.pipe { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); padding: 1.1rem 1.25rem; margin: 1.25rem 0 0; }
+	.pipe { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 1.1rem 1.25rem; margin: 1.25rem 0 0; }
 	.pipe .pt { font-size: .68rem; letter-spacing: .09em; font-weight: 700; color: var(--accent); text-transform: uppercase; margin: 0 0 .6rem; }
 	.pipe ol { list-style: none; margin: 0; padding: 0; }
 	.pipe li { position: relative; padding: .28rem 0 .28rem 1.4rem; font-size: .92rem; }
@@ -222,7 +222,7 @@
 	.ba .a b { color: var(--ba-good-fg); }
 	/* Live-block chrome: card, header, button system, think-lines.
 	   Block-specific css/js travels with the block markup (see assets/blocks.html). */
-	.blk { margin-top: 1rem; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); box-shadow: var(--shadow); }
+	.blk { margin-top: 1rem; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
 	.blk-head { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-bottom: 1px solid var(--line); background: var(--code-bg); flex-wrap: wrap; }
 	.btn {
 		border: 1px solid var(--line); background: var(--panel); color: var(--fg);
@@ -562,10 +562,150 @@
 	#hl-layer .hl.asking { background: var(--hl-asking); }
 	#hl-layer .hl.asked { background: var(--hl-asked); transition: background .15s; }
 	#hl-layer .hl.asked.lit { background: var(--hl-lit); }
+	/* ---- icons: lucide, inlined at build, so they take the text's colour ---- */
+	.i { width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -.14em; stroke-width: 2; }
+	.i.lg { width: 1.15em; height: 1.15em; }
+	h2 .i { color: var(--muted); margin-right: .35rem; vertical-align: -.1em; }
+	/* letter-spaced caps push the first letter right, so the glyph needs its own air */
+	.receipt b .i, .why b .i { width: .95em; height: .95em; vertical-align: -.12em; margin-right: .42rem; }
+	.verdict-pill .i, .state .i { width: .9em; height: .9em; }
+
+	/* ---- an issue rundown: a record of findings, not an essay ---- */
+	#toc li a.item { display: flex; gap: .45rem; align-items: baseline; color: inherit; text-decoration: none; padding: .28rem .3rem; border-radius: 7px; }
+	#toc li a.item:hover { background: var(--code-bg); }
+	#toc .item .sev { flex: 0 0 auto; color: var(--muted); }
+	#toc .item .sev.s1 { color: var(--ba-bad-fg); }
+	#toc .item .what { line-height: 1.35; }
+	#toc .item .where { display: block; color: var(--muted); font-size: .72rem; font-family: ui-monospace, Menlo, monospace; margin-top: .1rem; }
+	.docket-bar {
+		display: flex; flex-wrap: wrap; gap: .45rem; align-items: center;
+		border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+		padding: .6rem .8rem; margin: 2.4rem 0 0;
+	}
+	.docket-bar.follow { position: sticky; top: 0; z-index: 3; border-radius: 0 0 12px 12px; }
+	.docket-bar .n { font-weight: 700; }
+	.docket-bar .of { color: var(--muted); font-size: .85rem; margin-right: .4rem; }
+	.filter {
+		display: inline-flex; align-items: center; gap: .3rem; min-height: 26px;
+		border: 1px solid var(--line); background: transparent; color: var(--muted);
+		border-radius: 999px; padding: .25rem .7rem; font: inherit; font-size: .78rem; cursor: pointer;
+	}
+	.filter.on { border-color: var(--accent); color: var(--accent); background: var(--say-bg); }
+	.filter .c { opacity: .65; margin-left: .25rem; font-variant-numeric: tabular-nums; }
+	.empty-state { display: none; margin: .8rem 0 0; border: 1px dashed var(--line); border-radius: 12px; padding: 1.1rem 1rem; text-align: center; color: var(--muted); }
+	.empty-state.show { display: block; }
+	.empty-state .big { display: block; font-weight: 600; color: var(--fg); margin-bottom: .2rem; }
+	h2.hidden, ol.stops.hidden { display: none; }
+
+	ol.steps.stops { counter-reset: none; }
+	ol.steps.stops > li.stop {
+		counter-increment: none; margin: 1.6rem 0 0; padding: 0 0 0 2.3rem;
+		border-left: 0; margin-left: 0; position: relative;
+	}
+	ol.steps.stops > li.stop::before { content: none; }
+	li.stop.hidden { display: none; }
+	li.stop .sev {
+		position: absolute; left: 0; top: .1rem; width: 1.7rem; height: 1.7rem; border-radius: 8px;
+		display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted);
+	}
+	li.stop .sev.s1 { color: var(--ba-bad-fg); border-color: var(--ba-bad-fg); background: var(--ba-bad); }
+	li.stop .sev.s2, li.stop .sev.s3 { color: var(--muted); }
+	li.stop .head { margin: 0; display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; font-weight: 600; }
+	li.stop .head .claim { flex: 1 1 20rem; }
+	li.stop .at { color: var(--muted); font-size: .8rem; }
+
+	/* calm by default: only the state that still wants you is loud */
+	.state {
+		display: inline-flex; align-items: center; gap: .28rem; min-height: 24px;
+		font-size: .68rem; letter-spacing: .07em; text-transform: uppercase; font-weight: 700;
+		border-radius: 999px; padding: .28rem .6rem; cursor: pointer; font-family: inherit;
+		border: 1px solid var(--line); background: transparent; color: var(--muted);
+	}
+	.state.open { background: var(--ba-bad); color: var(--ba-bad-fg); border-color: var(--ba-bad-fg); }
+	.state.closed { color: var(--ba-good-fg); }
+	.state:hover { border-color: var(--accent); }
+
+	/* one finding, one card: evidence, mechanism, path and controls as rows */
+	.case { margin: .7rem 0 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
+	.case > * + * { border-top: 1px solid var(--line); }
+	.case .blk, .case .tbl-wrap { margin: 0; border: 0; border-radius: 0; }
+	.receipt .r-row { display: grid; grid-template-columns: 7.4rem 1fr; gap: .8rem; padding: .5rem .75rem; font-size: .875rem; }
+	.receipt .r-row + .r-row { border-top: 1px solid var(--line); }
+	.receipt b { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: .22rem; }
+	.receipt .r-row.said { background: var(--code-bg); }
+	.receipt .r-row.filed b { color: var(--ba-bad-fg); }
+	.receipt .r-row.delta { background: var(--ba-bad); }
+	.receipt .r-row.delta b { color: var(--ba-bad-fg); }
+	.receipt .r-row.delta .v { font-weight: 600; }
+	.receipt .v { font-family: ui-monospace, Menlo, monospace; font-size: .875rem; overflow-wrap: anywhere; }
+	.receipt .from { display: block; color: var(--muted); font-size: .78rem; font-family: inherit; margin-top: .15rem; }
+	.why { display: grid; grid-template-columns: 7.4rem 1fr; gap: .8rem; padding: .6rem .75rem; background: var(--say-bg); }
+	.why b { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); padding-top: .2rem; }
+	.why p { margin: 0; }
+	.knobs { padding: .55rem .75rem; }
+	.knobs .k-label { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: .35rem; }
+	.knobs table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+	.knobs td { padding: .22rem 0; vertical-align: baseline; }
+	.knobs td.k { width: 9rem; font-weight: 600; }
+	.knobs td.does { color: var(--muted); }
+	.knobs td.where { text-align: right; white-space: nowrap; }
+	.carry { display: grid; grid-template-columns: auto 1fr; gap: .6rem; align-items: start; margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--accent); background: var(--code-bg); border-radius: 0 8px 8px 0; }
+	.carry .i { color: var(--accent); margin-top: .3rem; }
+	.carry p { margin: 0; }
+	.to-finding { color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
+	.to-finding:hover { border-color: var(--accent); color: var(--accent); }
+
+	/* ---- table block: controls in the head, the reading key in the foot ---- */
+	.tbl-wrap { margin-top: .8rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+	.tbl-head { display: flex; align-items: center; gap: .6rem; padding: .5rem .8rem; border-bottom: 1px solid var(--line); background: var(--code-bg); font-size: .875rem; flex-wrap: wrap; }
+	.tbl-head .t-title { font-weight: 600; }
+	.t-filters { display: inline-flex; gap: .35rem; margin-left: auto; }
+	.chipf { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px; padding: .25rem .6rem; min-height: 24px; font: inherit; font-size: .78rem; cursor: pointer; }
+	.chipf.on { border-color: var(--accent); color: var(--accent); }
+	.tbl-scroll { overflow-x: auto; max-height: 26rem; overflow-y: auto; }
+	table.ev { border-collapse: collapse; width: 100%; font-size: .875rem; }
+	table.ev thead th {
+		position: sticky; top: 0; z-index: 1; background: var(--panel); text-align: left;
+		font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+		font-weight: 700; padding: .45rem .55rem; border-bottom: 1px solid var(--line);
+		cursor: pointer; white-space: nowrap; user-select: none;
+	}
+	table.ev thead th .i { opacity: 0; margin-left: .25rem; }
+	table.ev thead th.sorted .i { opacity: .8; }
+	table.ev thead th.desc .i { transform: rotate(180deg); }
+	table.ev td { padding: .45rem .55rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+	table.ev tbody tr:last-child td { border-bottom: 0; }
+	table.ev tbody tr:hover td { background: var(--code-bg); }
+	table.ev td.mono { font-family: ui-monospace, Menlo, monospace; font-size: .82rem; }
+	table.ev td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	table.ev td.q { max-width: 15rem; }
+	table.ev tr.bad td.mono { color: var(--ba-bad-fg); }
+	table.ev tr.good td.mono { color: var(--ba-good-fg); }
+	table.ev tr.hidden { display: none; }
+	.verdict-pill { display: inline-flex; align-items: center; gap: .32rem; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; font-weight: 700; border-radius: 999px; padding: .1rem .45rem; white-space: nowrap; }
+	.verdict-pill.bad { background: var(--ba-bad); color: var(--ba-bad-fg); }
+	.verdict-pill.good { background: var(--ba-good); color: var(--ba-good-fg); }
+	.tbl-foot { display: flex; gap: .5rem; align-items: center; padding: .45rem .8rem; border-top: 1px solid var(--line); background: var(--code-bg); font-size: .78rem; color: var(--muted); flex-wrap: wrap; }
+
+	/* ---- bar block ---- */
+	.bars { margin: .8rem 0 0; }
+	.bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
+	.bar span { display: block; }
+	.bar .good { background: var(--ba-good-fg); opacity: .75; }
+	.bar .bad { background: var(--ba-bad-fg); }
+	.bar .absent { background: repeating-linear-gradient(45deg, var(--line), var(--line) 4px, transparent 4px, transparent 8px); }
+	.bar-key { display: flex; flex-wrap: wrap; gap: .9rem; margin-top: .35rem; font-size: .78rem; color: var(--muted); }
+	.bar-key b { color: var(--fg); font-variant-numeric: tabular-nums; }
+	.bar-key .bar-note { margin-left: auto; }
+	.bar-key .sw, .tbl-foot .sw { display: inline-block; width: 10px; height: 9px; border-radius: 2px; margin-right: .3rem; vertical-align: .02em; }
+	.bar-key .sw.good { background: var(--ba-good-fg); opacity: .75; }
+	.bar-key .sw.bad { background: var(--ba-bad-fg); }
+	.bar-key .sw.absent { border: 1px solid var(--line); }
 </style>
 {{LOOK}}
 </head>
 <body>
+{{ICONS}}
 {{NAV}}
 <main>
 
@@ -1821,6 +1961,90 @@
 			return box;
 		}
 	}
+
+
+	// ---- an issue page: filter the findings, sort a table, ask for a state ----
+	const bar = document.querySelector('.docket-bar');
+	if (bar) {
+		const stops = [...document.querySelectorAll('li.stop')];
+		const why = {
+			closed: 'nothing has shipped yet, so nothing is closed.',
+			agreed: 'no fix has been agreed yet. Argue one in the discussion and it lands here.',
+			open: 'nothing is open. Every finding has been dealt with.',
+			holds: 'nothing on this page held up, which would be worth saying out loud.',
+		};
+		let showing = 'all';
+		function applyFilter(jump) {
+			stops.forEach(s => s.classList.toggle('hidden', showing !== 'all' && s.dataset.state !== showing));
+			// a stage with nothing left in it goes too, or the page reads as broken
+			document.querySelectorAll('ol.stops').forEach(list => {
+				const any = [...list.querySelectorAll('li.stop')].some(s => !s.classList.contains('hidden'));
+				list.classList.toggle('hidden', !any);
+				const h = list.previousElementSibling;
+				if (h && h.tagName === 'H2') h.classList.toggle('hidden', !any);
+			});
+			const shown = stops.filter(s => !s.classList.contains('hidden'));
+			const box = document.getElementById('empty');
+			box.classList.toggle('show', !shown.length);
+			if (!shown.length) {
+				document.getElementById('empty-title').textContent = 'nothing ' + showing;
+				document.getElementById('empty-why').textContent = why[showing] || '';
+				box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+			} else if (jump && showing !== 'all') {
+				shown[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+			}
+		}
+		bar.querySelectorAll('.filter').forEach(b => b.addEventListener('click', () => {
+			bar.querySelectorAll('.filter').forEach(x => x.classList.toggle('on', x === b));
+			showing = b.dataset.f;
+			applyFilter(true);
+		}));
+		// the bar follows its own findings and lets go afterwards
+		const lists = [...document.querySelectorAll('ol.stops')];
+		if (lists.length) {
+			const follow = () => {
+				const first = lists[0].getBoundingClientRect();
+				const last = lists[lists.length - 1].getBoundingClientRect();
+				bar.classList.toggle('follow', first.top < 0 && last.bottom > 120);
+			};
+			addEventListener('scroll', follow, { passive: true });
+			follow();
+		}
+		// a state is a spec field, so pressing it asks for the edit rather than
+		// pretending the page owns it
+		document.querySelectorAll('.state[data-stop]').forEach(pill => pill.addEventListener('click', () => {
+			const now = pill.closest('li.stop').dataset.state;
+			sendQuestion({
+				question: 'change this finding from ' + now + ' to: ',
+				stop: pill.dataset.stop, via: 'state', block: '', part: now,
+			});
+			setStatus && pill.setAttribute('title', 'asked for a change of state');
+		}));
+	}
+
+	// sortable columns and per-table filters, for every table on the page
+	document.querySelectorAll('table.ev thead th').forEach(th => th.addEventListener('click', () => {
+		const table = th.closest('table'), k = +th.dataset.k;
+		const desc = th.classList.contains('sorted') && !th.classList.contains('desc');
+		table.querySelectorAll('th').forEach(x => x.classList.remove('sorted', 'desc'));
+		th.classList.add('sorted');
+		if (desc) th.classList.add('desc');
+		const body = table.querySelector('tbody');
+		[...body.rows].sort((a, b2) => {
+			const x = a.cells[k].textContent.trim(), y = b2.cells[k].textContent.trim();
+			const nx = parseFloat(x.replace(/'/g, '')), ny = parseFloat(y.replace(/'/g, ''));
+			const cmp = (!isNaN(nx) && !isNaN(ny)) ? nx - ny : x.localeCompare(y);
+			return desc ? -cmp : cmp;
+		}).forEach(r => body.append(r));
+	}));
+	document.querySelectorAll('.chipf').forEach(b => b.addEventListener('click', () => {
+		const wrap = b.closest('.tbl-wrap');
+		wrap.querySelectorAll('.chipf').forEach(x => x.classList.toggle('on', x === b));
+		const want = b.dataset.v;
+		wrap.querySelectorAll('tbody tr').forEach(tr => {
+			tr.classList.toggle('hidden', want !== 'all' && tr.dataset.v !== want);
+		});
+	}));
 
 	function startPolling() { if (!pollTimer) pollTimer = setInterval(syncQA, 2000); }
 	function stopPolling() { clearInterval(pollTimer); pollTimer = null; }

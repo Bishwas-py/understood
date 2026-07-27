@@ -30,7 +30,8 @@ What you get:
 - every stop is a claim, with a `file:line` chip that opens your editor at that line
 - live blocks you operate instead of paragraphs you read: flip a switch to take a fix out of the build, run a race with and without the lock, drag a dial past the value that shipped
 - select any text on the page and ask about it. The question reaches the Claude session that built the page, and the answer lands in the margin, threaded to the words you highlighted
-- a round of questions at the end. A senior reviewer asks one at a time, deep ones and code ones, you type your answer, it marks you and asks the next. Last turn is a verdict on what you'd actually survive being asked. Take another round whenever you want; the old ones stay on the page
+- a round of questions at the end. A senior reviewer asks a dozen on a slider, you answer what you can, and the score says how much of it you could defend under questioning. Take another round whenever you want; the old ones stay on the page
+- or an **issue rundown**: the same machinery pointed at defects instead of a change. Each finding carries its receipts (what the source says, what the run did, what differs), the mechanism behind it, and the controls that exist around it. It never hands you the fix, which is the point, and the build refuses a line that reads like one
 
 ## Why the rundown doesn't lie to you
 
@@ -73,7 +74,7 @@ rundown save <slug> spec.json snapshot the old spec, write the new one, build
 rundown verify <slug>         validate only, write nothing
 rundown blocks                every block, and what each one needs
 rundown blocks <name>         one block's shape, and a config to paste
-rundown blocks --demo         a page carrying all fourteen, operable
+rundown blocks --demo         a page carrying all sixteen, operable
 rundown rm <slug> --force     delete one and its conversation
 rundown upgrade               pull the latest source, update the plugin
 rundown uninstall             remove the command and the plugin
@@ -113,6 +114,7 @@ understood/
         rundown/assets/mermaid.py         flowcharts drawn to svg at build time
         rundown/assets/template.html      the page shell and its runtime
         rundown/assets/cli.py             the rundown command
+        rundown/assets/icons.py           one glyph per idea, cached and inlined
         rundown/assets/store.py           one folder per rundown, history, snapshots
         rundown/assets/serve.py           one origin for every rundown, index, /ask
         rundown/assets/wait_question.py   the wake loop, and relinking a renamed mark
