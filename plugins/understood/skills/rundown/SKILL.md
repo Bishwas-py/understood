@@ -419,6 +419,8 @@ Style only. There is no javascript escape hatch, because a page's behaviour come
 
 Answers are mini-markdown: `- ` bullets, `**bold**` lead words, backtick code, `{file.go:50}` chips, and `[label](cursor://...)` links. Two richer forms, used only when the shape earns them:
 
+**Write a chip with its path when the file is not already on the page.** `{app/features/extract/runner.go:316}` resolves against the repo root the page carries, so it links wherever it is written. A bare `{runner.go:316}` only links when that filename already appears in an anchor somewhere on the page, and reads as plain code when it does not. Either way the chip shows `runner.go:316`, so the path costs the reader nothing.
+
 - a line starting `flow:` (or a ```flow fence) renders as an arrow chain of pills: `flow: form JSON -> settle -> leftover list`. Use it whenever the answer is a process.
 - an ```svg fence renders inline as a diagram. Hand-write it small (a few boxes and arrows, viewBox, currentColor strokes), no scripts, no event handlers, no external references; it is sanitized and falls back to plain code if it fails the check. A diagram is for structure that words genuinely cannot carry, one per answer at most.
 

@@ -576,6 +576,7 @@
 
 </main>
 <script id="skills-data" type="application/json">{{SKILLS}}</script>
+<script id="repo-data" type="application/json">{{REPO}}</script>
 <script>
 	const links = [...document.querySelectorAll('#toc a')];
 	const targets = links.map(a => document.getElementById(a.hash.slice(1))).filter(Boolean);
@@ -1158,12 +1159,29 @@
 		});
 		return base;
 	}
+	// Where this page's code lives, so a chip resolves on its own rather than
+	// only when the same file happens to be linked somewhere else already.
+	let repoData = { root: '', editor: 'cursor' };
+	try { repoData = JSON.parse(document.getElementById('repo-data').textContent) || repoData; } catch (e) {}
+
 	function chipify(t) {
-		// {file.go:139} in any answer becomes a real chip. Unknown files stay plain code.
+		// {file.go:139} or {app/features/x/runner.go:226}. A path resolves against
+		// the repo root; a bare name resolves against the anchors already on the
+		// page. The label is always the basename, a full path reads as noise.
 		const base = pathBases();
-		return t.replace(/\{([\w.\-]+):(\d+)\}/g, (m, f, l) => base.has(f)
-			? '<a class="path" href="' + base.get(f) + ':' + l + '">' + f + ':' + l + '</a>'
-			: '<code>' + f + ':' + l + '</code>');
+		return t.replace(/\{([\w./\-]*[\w\-]+\.[A-Za-z0-9]+):(\d+)\}/g, (m, path, line) => {
+			const name = path.split('/').pop();
+			let href = null;
+			if (path.includes('/') && repoData.root) {
+				href = repoData.editor + '://file' + repoData.root + '/' + path + ':' + line;
+			} else if (base.has(name)) {
+				href = base.get(name) + ':' + line;
+			}
+			const label = name + ':' + line;
+			return href
+				? '<a class="path" href="' + esc(href) + '" title="' + esc(path) + '">' + label + '</a>'
+				: '<code>' + label + '</code>';
+		});
 	}
 	function inline(t) {
 		return chipify(t)

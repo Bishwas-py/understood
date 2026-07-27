@@ -16,8 +16,8 @@ import sys
 from pathlib import Path
 
 import mermaid
-from spec import (BLOCK_TYPES, EM_DASH, chip, esc, inline, json_block, load, pretty,
-                  ref_href, ref_label)
+from spec import (BLOCK_TYPES, EM_DASH, chip, esc, expand_root, inline, json_block, load,
+                  pretty, ref_href, ref_label)
 
 HERE = Path(__file__).resolve().parent
 
@@ -434,8 +434,16 @@ def render(spec: dict) -> str:
     sub = spec.get("subtitle", "")
     if spec.get("repo", {}).get("sha"):
         sub = f'{sub} <span class="build">build {spec.get("build", 1)} &middot; {spec["repo"]["sha"]}</span>'
+    repo = spec.get("repo") or {}
+    # the page carries its own root and scheme, so a chip written in an answer
+    # resolves whether or not that file already appears somewhere on the page
+    where = json.dumps(
+        {"root": str(expand_root(repo["root"])) if repo.get("root") else "", "editor": repo.get("editor", "cursor")},
+        ensure_ascii=False,
+    )
     html = (
-        tpl.replace("{{LOOK}}", look_html(spec))
+        tpl.replace("{{REPO}}", where)
+        .replace("{{LOOK}}", look_html(spec))
         .replace("{{TITLE}}", esc(spec.get("title", "rundown")))
         .replace("{{SUBTITLE}}", sub)
         .replace("{{NAV}}", nav_html(spec))
