@@ -163,10 +163,14 @@ def check_kind(rep: Report, spec: dict) -> None:
                     check_text(rep, spec.get("repo") or {}, f"{sid}.{key}", stop[key])
             if stop.get("carry") and SOLVING.search(stop["carry"]):
                 rep.error(f"{sid}.carry", "a carry line is a rule that outlives this page, never a fix")
+    stops = {s.get("id") for stage in spec.get("stages") or [] for s in stage.get("stops") or []}
     for i, row in enumerate(spec.get("cost") or []):
         for key in ("what", "stop"):
             if not row.get(key):
                 rep.error(f"cost[{i}]", f"a cost row needs {key}")
+        # a cost row is a link into the page, so it has to land somewhere
+        if row.get("stop") and row["stop"] not in stops:
+            rep.error(f"cost[{i}]", f"stop {row['stop']!r} is not on this page, the link goes nowhere")
 
 
 def check_text(rep: Report, repo: dict, where: str, text: str) -> None:

@@ -688,7 +688,9 @@
 	.tbl-foot { display: flex; gap: .5rem; align-items: center; padding: .45rem .8rem; border-top: 1px solid var(--line); background: var(--code-bg); font-size: .78rem; color: var(--muted); flex-wrap: wrap; }
 
 	/* ---- bar block ---- */
-	.bars { margin: .8rem 0 0; }
+	/* a row inside a case carries its own padding, like every other row */
+	.bars { margin: .8rem 0 0; padding: .7rem .8rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+	.case .bars { margin: 0; border: 0; border-radius: 0; }
 	.bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
 	.bar span { display: block; }
 	.bar .good { background: var(--ba-good-fg); opacity: .75; }
