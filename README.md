@@ -58,6 +58,8 @@ curl -fsSL https://raw.githubusercontent.com/Bishwas-py/understood/main/install.
 
 One clone on disk, read by both halves, so the command and the plugin can't drift apart. No package manager involved: it's pure python with no dependencies, so a clone and a small shim is the whole install. Set `RUNDOWN_HOME` or `RUNDOWN_BIN` if you want them somewhere else.
 
+Hooks come with the plugin rather than with your settings, and install and upgrade both settle them: the `Stop` hook that stops a turn ending while a reader is waiting is registered by Claude Code from the plugin itself, and anything hand-written that competes with it is removed (your old settings file is kept beside it). `rundown doctor` says whether it's live.
+
 Restart Claude Code afterward. Skills don't hot-reload.
 
 ### The command

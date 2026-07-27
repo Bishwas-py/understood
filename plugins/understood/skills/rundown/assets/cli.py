@@ -227,6 +227,73 @@ def run_claude(claude: str, *argv: str) -> tuple[int, str]:
     return out.returncode, (out.stdout + out.stderr).strip()
 
 
+def hook_registered(claude: str) -> bool:
+    """The plugin ships its Stop hook; this asks Claude Code whether it took it."""
+    code, out = run_claude(claude, "plugin", "details", PLUGIN)
+    return code == 0 and any(l.strip().startswith("Hooks") and "Stop" in l for l in out.splitlines())
+
+
+def stale_hooks(settings: Path) -> tuple[dict, list[str]]:
+    """Hand-written rundown Stop hooks in a settings file.
+
+    The plugin's own hook travels with the plugin and is repointed on every
+    upgrade. One pasted into settings.json pins a path that an upgrade moves,
+    and then fires twice or not at all.
+    """
+    try:
+        data = json.loads(settings.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}, []
+    found = []
+    for group in (data.get("hooks") or {}).get("Stop", []):
+        for hook in group.get("hooks", []):
+            command = " ".join([str(hook.get("command", "")), *map(str, hook.get("args", []))])
+            if ("pending.py" in command or ".rundown" in command) and "CLAUDE_PLUGIN_ROOT" not in command:
+                found.append(command)
+    return data, found
+
+
+def drop_stale_hooks(data: dict, settings: Path) -> None:
+    groups = []
+    for group in (data.get("hooks") or {}).get("Stop", []):
+        kept = [
+            h for h in group.get("hooks", [])
+            if not (
+                ("pending.py" in " ".join([str(h.get("command", "")), *map(str, h.get("args", []))])
+                 or ".rundown" in " ".join([str(h.get("command", "")), *map(str, h.get("args", []))]))
+                and "CLAUDE_PLUGIN_ROOT" not in str(h.get("command", ""))
+            )
+        ]
+        if kept:
+            groups.append({**group, "hooks": kept})
+    if groups:
+        data["hooks"]["Stop"] = groups
+    else:
+        data["hooks"].pop("Stop", None)
+        if not data["hooks"]:
+            data.pop("hooks", None)
+    shutil.copy2(settings, settings.with_suffix(".json.before-rundown"))
+    settings.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def ensure_hooks(claude: str | None) -> None:
+    """Say whether the hook is live, and clear anything competing with it."""
+    settings = Path.home() / ".claude" / "settings.json"
+    data, found = stale_hooks(settings)
+    if found:
+        print(f"removing {len(found)} hand-written Stop hook(s) from {settings}:")
+        for command in found:
+            print(f"  {command[:100]}")
+        print(f"  a copy of the old file is at {settings.with_suffix('.json.before-rundown').name}")
+        drop_stale_hooks(data, settings)
+    if not claude:
+        return
+    if hook_registered(claude):
+        print("hook:        Stop, shipped with the plugin, registered")
+    else:
+        print("hook:        not registered yet, it loads when Claude Code next starts", file=sys.stderr)
+
+
 def cmd_install(args) -> int:
     """Install or update the Claude Code plugin, through Claude's own commands.
 
@@ -260,6 +327,7 @@ def cmd_install(args) -> int:
             print(f"plugin: {out.splitlines()[-1] if out else 'failed'}", file=sys.stderr)
             return 1
 
+    ensure_hooks(claude)
     print(f"\nrundown {version()} is installed. Restart Claude Code, skills do not hot-reload.")
     return 0
 
@@ -310,6 +378,12 @@ def cmd_doctor(args) -> int:
         print(f"plugin       {line.strip() if line else 'not installed, run: rundown install'}")
     editor = shutil.which("cursor") or shutil.which("code")
     print(f"editor       {editor or 'no cursor or code on PATH, links still work if the app is installed'}")
+    if claude:
+        live = hook_registered(claude)
+        print(f"hook         {'Stop, registered' if live else 'not registered, run: rundown install'}")
+    _, found = stale_hooks(Path.home() / ".claude" / "settings.json")
+    if found:
+        print(f"settings     {len(found)} hand-written Stop hook(s) competing with it, run: rundown install")
     return 0
 
 

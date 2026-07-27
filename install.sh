@@ -51,9 +51,11 @@ chmod +x "$BIN/rundown"
 say "installed $BIN/rundown"
 
 if command -v claude >/dev/null 2>&1; then
+  # installs or updates the plugin, and settles its hooks: the Stop hook ships
+  # with the plugin, so anything hand-written that competes with it is removed
   "$BIN/rundown" install
 else
-  say "the claude CLI is not on PATH, skipping the plugin"
+  say "the claude CLI is not on PATH, skipping the plugin and its hooks"
   say "run 'rundown install' once it is"
 fi
 
