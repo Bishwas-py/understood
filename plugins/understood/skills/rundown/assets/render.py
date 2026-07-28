@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import mermaid
+import fonts
 from icons import icon, sprite
 from spec import (BLOCK_TYPES, EM_DASH, chip, esc, expand_root, inline, json_block, load,
                   pretty, ref_href, ref_label)
@@ -636,7 +637,8 @@ def render(spec: dict) -> str:
         ensure_ascii=False,
     )
     html = (
-        tpl.replace("{{ICONS}}", sprite())
+        tpl.replace("{{FONTS}}", f"<style>{fonts.css()}</style>" if fonts.css() else "")
+        .replace("{{ICONS}}", sprite())
         .replace("{{REPO}}", where)
         .replace("{{LOOK}}", look_html(spec))
         .replace("{{TITLE}}", esc(spec.get("title", "rundown")))

@@ -6,6 +6,14 @@
 <title>{{TITLE}}</title>
 <style>
 	:root {
+		/* Two hands. Shantell carries every sentence, down to the small print,
+		   because it is upright and even. Caveat is the accent: title, headings,
+		   claims, the carry rule. It never goes below 18px, where its slant and
+		   long extenders stop being legible. Chips and labels stay as they were. */
+		--hand: 'Shantell Sans', 'Noteworthy', 'Chalkboard SE', system-ui, sans-serif;
+		--hand-loud: 'Caveat', 'Bradley Hand', 'Noteworthy', cursive;
+		--plain: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+		--mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 		--bg: #ffffff;
 		--fg: #1a1a1a;
 		--muted: #6b7280;
@@ -55,7 +63,7 @@
 		padding: 2.5rem 1.25rem 6rem;
 		background: var(--bg);
 		color: var(--fg);
-		font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+		font: 16px/1.62 var(--hand);
 	}
 	/* Floating sidebar: detached from the edge, rounded, its own surface. */
 	#toc {
@@ -83,7 +91,8 @@
 	#toc a { display: block; padding: .2rem .45rem; border-radius: 7px; color: var(--muted); text-decoration: none; transition: background .12s, color .12s; }
 	#toc a:hover { background: var(--code-bg); color: var(--fg); }
 	#toc a.sec { color: var(--fg); font-weight: 600; margin-top: .45rem; }
-	#toc ol.sub a { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .735rem; }
+	#toc ol.sub a { font-family: var(--mono); font-size: .735rem; }
+	#toc ol.sub a.item { font-family: var(--hand); font-size: .82rem; }
 	#toc a.active { color: var(--accent); background: var(--say-bg); font-weight: 600; }
 
 	/* Content stays centred in the space left of the sidebar, not shoved right. */
@@ -93,15 +102,17 @@
 		#toc { display: none; }
 		main { margin: 0 auto; padding-left: 0; width: min(780px, 100%); }
 	}
-	h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+	h1 { font-family: var(--hand-loud); font-size: 2.1rem; font-weight: 600; letter-spacing: .005em; margin: 0 0 .25rem; }
 	.sub { color: var(--muted); margin: 0 0 2.5rem; font-size: .95rem; }
 	h2 {
-		font-size: 1.15rem;
+		font-family: var(--hand-loud);
+		font-weight: 600;
+		font-size: 1.55rem;
 		margin: 3rem 0 .35rem;
 		padding-bottom: .5rem;
 		border-bottom: 2px solid var(--line);
 	}
-	h2 .hint { font-weight: 400; color: var(--muted); font-size: .85rem; }
+	h2 .hint { font-family: var(--hand); font-weight: 400; color: var(--muted); font-size: .85rem; }
 	h3 { font-size: .95rem; margin: 2rem 0 .5rem; color: var(--muted); font-weight: 600; }
 	code, .path {
 		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -242,9 +253,8 @@
 	ul.think {
 		margin: .6rem 0 0;
 		padding-left: 1.15rem;
-		font-family: "Noteworthy", "Chalkboard SE", cursive;
-		font-size: 1.02rem;
-		line-height: 1.75;
+		font-size: 1rem;
+		line-height: 1.7;
 	}
 	ul.think > li { margin: .45rem 0; }
 	ul.think li::marker { color: var(--accent); }
@@ -562,6 +572,28 @@
 	#hl-layer .hl.asking { background: var(--hl-asking); }
 	#hl-layer .hl.asked { background: var(--hl-asked); transition: background .15s; }
 	#hl-layer .hl.asked.lit { background: var(--hl-lit); }
+	/* the accent, everywhere it earns its size */
+	li.stop .head .claim, .head .action { font-family: var(--hand-loud); font-size: 1.28rem; font-weight: 600; line-height: 1.35; }
+	.carry p { font-family: var(--hand-loud); font-size: 1.25rem; line-height: 1.4; }
+	#viva .score { font-family: var(--hand-loud); font-size: 2.2rem; }
+	.pipe .pt { font-family: var(--hand-loud); font-size: 1.05rem; letter-spacing: .01em; text-transform: none; }
+	.tbl-head .t-title { font-family: var(--hand-loud); font-size: 1.15rem; font-weight: 600; }
+
+	/* the hand goes everywhere. only code keeps its own face, because an
+	   identifier has to be read back character by character. */
+	code, pre, .path, .rec, .mono, .art, .row, .hop, .blk-cfg { font-family: var(--mono); }
+	/* a quoted document line is not code, so it reads in the hand. a value a
+	   block is stepping through still is, so that one keeps its face. */
+	.blk .v { font-family: var(--mono); }
+	.receipt .v, .receipt .from { font-family: var(--hand); }
+	/* small caps in a hand need less tracking and a little more size than a sans
+	   did, or the letterforms run together */
+	.receipt b, .why b, .k-label, .toc-title, table.ev thead th, .state, .verdict-pill {
+		letter-spacing: .02em;
+	}
+	.receipt b, .why b, .k-label, .toc-title { font-size: .8rem; }
+	table.ev thead th { font-size: .82rem; }
+	#toc .item .where, .at, .where { font-family: var(--mono); }
 	/* ---- icons: lucide, inlined at build, so they take the text's colour ---- */
 	.i { width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -.14em; stroke-width: 2; }
 	.i.lg { width: 1.15em; height: 1.15em; }
@@ -637,7 +669,7 @@
 	.receipt .r-row.delta { background: var(--ba-bad); }
 	.receipt .r-row.delta b { color: var(--ba-bad-fg); }
 	.receipt .r-row.delta .v { font-weight: 600; }
-	.receipt .v { font-family: ui-monospace, Menlo, monospace; font-size: .875rem; overflow-wrap: anywhere; }
+	.receipt .v { font-family: var(--hand); font-size: 1rem; overflow-wrap: anywhere; }
 	.receipt .from { display: block; color: var(--muted); font-size: .78rem; font-family: inherit; margin-top: .15rem; }
 	.why { display: grid; grid-template-columns: 7.4rem 1fr; gap: .8rem; padding: .6rem .75rem; background: var(--say-bg); }
 	.why b { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); padding-top: .2rem; }
@@ -704,6 +736,7 @@
 	.bar-key .sw.bad { background: var(--ba-bad-fg); }
 	.bar-key .sw.absent { border: 1px solid var(--line); }
 </style>
+{{FONTS}}
 {{LOOK}}
 </head>
 <body>
